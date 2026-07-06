@@ -150,14 +150,62 @@ def test_search_flights_passengers_coerced_from_string(monkeypatch):
     assert captured["passengers"] == 3  # coerced from "3" (string) to 3 (int)
 
 
-def test_search_flights_duffel_error_returns_error(monkeypatch):
+def test_search_flights_falls_back_to_travelpayouts_on_duffel_error(monkeypatch):
     def _boom(*a, **k):
-        raise DuffelError("Duffel API error 401: invalid token")
+        raise DuffelError("Duffel API error 403: needs offer_requests.create")
 
     monkeypatch.setattr(flight, "search_offers", _boom)
+    monkeypatch.setattr(flight, "search_cheap_prices",
+                        lambda *a, **k: [{"airline": "W4", "price": 380,
+                                          "departure_at": "2026-11-07T10:00"}])
+    monkeypatch.setattr(flight, "verified_flight_link",
+                        lambda *a, **k: {"url": "x", "verified": True, "status": 200})
+
+    result = search_flights("TLV", "ROM", "2026-11-07", passengers=3)
+    assert result["source"] == "travelpayouts_cached"
+    assert result["offers"][0]["price"] == 380
+    assert result["offers"][0]["currency"] == "ILS"
+    assert result["offers"][0]["total_price"] == 1140  # 380 * 3
+    assert "cached" in result["note"].lower()
+    assert "403" in result["duffel_error"]
+
+
+def test_search_flights_falls_back_when_duffel_empty(monkeypatch):
+    monkeypatch.setattr(flight, "search_offers", lambda *a, **k: [])  # no live offers
+    monkeypatch.setattr(flight, "search_cheap_prices",
+                        lambda *a, **k: [{"airline": "LY", "price": 900}])
+    monkeypatch.setattr(flight, "verified_flight_link",
+                        lambda *a, **k: {"url": "x", "verified": True, "status": 200})
+    result = search_flights("TLV", "ROM", "2026-11-07")
+    assert result["source"] == "travelpayouts_cached"
+    assert result["offers"]
+
+
+def test_search_flights_fallback_respects_max_price(monkeypatch):
+    monkeypatch.setattr(flight, "search_offers",
+                        lambda *a, **k: (_ for _ in ()).throw(DuffelError("403")))
+    monkeypatch.setattr(flight, "search_cheap_prices",
+                        lambda *a, **k: [{"airline": "A", "price": 300},
+                                         {"airline": "B", "price": 5000}])
+    monkeypatch.setattr(flight, "verified_flight_link",
+                        lambda *a, **k: {"url": "x", "verified": True, "status": 200})
+    result = search_flights("TLV", "ROM", "2026-11-07", max_price=1000)
+    assert [o["price"] for o in result["offers"]] == [300]  # 5000 filtered out
+
+
+def test_search_flights_error_when_both_sources_fail(monkeypatch):
+    from tools.travelpayouts import TravelpayoutsError
+
+    monkeypatch.setattr(flight, "search_offers",
+                        lambda *a, **k: (_ for _ in ()).throw(DuffelError("403 scope")))
+
+    def _tp_boom(*a, **k):
+        raise TravelpayoutsError("TRAVELPAYOUTS_TOKEN is not set.")
+
+    monkeypatch.setattr(flight, "search_cheap_prices", _tp_boom)
     result = search_flights("TLV", "ROM", "2026-11-07")
     assert "error" in result
-    assert "401" in result["error"]
+    assert result["duffel_error"] and result["travelpayouts_error"]
 
 
 def test_schema_optional_params_are_nullable():

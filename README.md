@@ -108,8 +108,11 @@ skill shapes the advice.
 ## Roadmap and current status
 
 1. **[DONE]** MVP: basic conversational agent, no tools.
-2. **[DONE]** Tool 1 — flight search. Started as a mock, then Travelpayouts (cached),
-   now **Duffel** for live request-time offers. Same stable signature throughout.
+2. **[DONE]** Tool 1 — flight search. **Duffel** for live request-time offers, with an
+   automatic **Travelpayouts cached-price fallback** (`tools/travelpayouts.py`) when
+   Duffel is unavailable or returns nothing — so flight results always come back.
+   The result's `source` field (`duffel_live` / `travelpayouts_cached`) drives the
+   agent's honesty about data freshness. Same stable signature throughout.
 3. **[DONE]** **Flight Expert skill** (`skills/flight_expert/SKILL.md`) — advises on
    baggage (checked vs. carry-on), refundable/change conditions, stops, cabin, airline
    preference, budget, and group-appropriate choices. The deterministic filter/rank

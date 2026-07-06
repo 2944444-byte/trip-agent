@@ -1,24 +1,25 @@
-"""Flight search tool (Duffel-backed).
+"""Flight search tool (Duffel-backed, with a Travelpayouts fallback).
 
 Orchestration layer with a stable signature. It:
   1. resolves city names to IATA codes,
   2. asks Duffel for live (request-time) offers,
-  3. runs the Flight Expert skill to filter/rank/annotate by traveler preferences,
+  3. runs the ranking engine to filter/rank/annotate by traveler preferences,
   4. attaches a deterministic, HTTP-verified booking link.
 
-Offers are generated at request time (not cached), and each carries baggage and
-refund/change conditions, so we no longer rely on stale-price caveats. (With a
-Duffel *test* token the data is realistically shaped but synthetic; a live token
-returns real airline offers.)
+If Duffel is unavailable (e.g. the token lacks the flight scope) or returns no
+offers, it falls back to Travelpayouts cached prices so the agent can still show
+options — clearly marked as cached, and without baggage/refund data the cached
+source doesn't provide.
 """
 import functools
 
 import airportsdata
 
-from config import MAX_FLIGHT_RESULTS
+from config import CURRENCY, MAX_FLIGHT_RESULTS
 from tools import flight_ranking
 from tools.booking_links import verified_flight_link
 from tools.duffel import DuffelError, search_offers
+from tools.travelpayouts import TravelpayoutsError, search_cheap_prices
 
 # Curated city -> IATA metro map, checked before the airportsdata fallback.
 _CITY_TO_IATA = {
@@ -127,13 +128,6 @@ def search_flights(origin, destination, depart_date, return_date=None, passenger
             "departure_date": return_date,
         })
 
-    try:
-        raw_offers = search_offers(
-            slices, passengers, cabin_class=cabin_class, max_connections=max_stops,
-        )
-    except DuffelError as e:
-        return {"error": str(e)}
-
     preferences = {
         "max_stops": max_stops,
         "refundable_only": refundable_only,
@@ -144,7 +138,27 @@ def search_flights(origin, destination, depart_date, return_date=None, passenger
         "max_price": _coerce_float(max_price, default=None),
         "sort_by": sort_by,
     }
-    result = flight_ranking.recommend(raw_offers, preferences, limit=MAX_FLIGHT_RESULTS)
+
+    # Primary: live Duffel offers.
+    duffel_error = None
+    try:
+        raw_offers = search_offers(
+            slices, passengers, cabin_class=cabin_class, max_connections=max_stops,
+        )
+    except DuffelError as e:
+        raw_offers, duffel_error = [], str(e)
+
+    if raw_offers:
+        result = flight_ranking.recommend(raw_offers, preferences, limit=MAX_FLIGHT_RESULTS)
+        result["source"] = "duffel_live"
+    else:
+        # Fallback: Travelpayouts cached prices so we still return options.
+        result = _travelpayouts_fallback(
+            origin_code, destination_code, depart_date, passengers, preferences,
+            duffel_error,
+        )
+        if "error" in result:
+            return result
 
     # Attach ONE verified booking link for the searched route (see booking_links).
     result["booking_link"] = verified_flight_link(
@@ -153,6 +167,68 @@ def search_flights(origin, destination, depart_date, return_date=None, passenger
     result["route"] = {"origin": origin_code, "destination": destination_code,
                        "depart_date": depart_date, "return_date": return_date}
     return result
+
+
+def _travelpayouts_fallback(origin, destination, depart_date, passengers, preferences,
+                            duffel_error):
+    """Cached-price fallback used when Duffel yields nothing.
+
+    Returns the same result shape as the live path, marked as cached. Only the
+    filters the cached data supports (max_price) are applied; baggage/refund/stops
+    preferences are not available and are reported as ignored.
+    """
+    try:
+        cached = search_cheap_prices(origin, destination, depart_date)
+        if not cached and len(depart_date) == 10:
+            # A specific day often has no cached data; retry the whole month.
+            cached = search_cheap_prices(origin, destination, depart_date[:7])
+    except TravelpayoutsError as tp_error:
+        return {"error": "Flight search is unavailable right now.",
+                "duffel_error": duffel_error,
+                "travelpayouts_error": str(tp_error)}
+
+    currency = CURRENCY.upper()
+    offers = []
+    for c in cached:
+        price = c.get("price")
+        offers.append({
+            "airline": c.get("airline"),
+            "airline_iata": c.get("airline"),
+            "flight_number": c.get("flight_number"),
+            "price": float(price) if price is not None else None,
+            "currency": currency,
+            "total_price": float(price) * passengers if price is not None else None,
+            "departure_at": c.get("departure_at"),
+            "return_at": c.get("return_at"),
+            "stops": None, "checked_bags": None, "carry_on_bags": None,
+            "refundable": None,
+            "expert_notes": ["Cached price (Travelpayouts) — not live availability",
+                             "Baggage & refund conditions not available from this source"],
+        })
+
+    max_price = preferences.get("max_price")
+    if max_price is not None:
+        offers = [o for o in offers if o["price"] is None or o["price"] <= max_price]
+    offers.sort(key=lambda o: o["price"] if o["price"] is not None else float("inf"))
+    offers = offers[:MAX_FLIGHT_RESULTS]
+
+    ignored = [k for k in ("min_checked_bags", "require_carry_on", "refundable_only",
+                           "max_stops", "airlines_include", "airlines_exclude")
+               if preferences.get(k)]
+    note = ("Live search (Duffel) was unavailable, so these are CACHED prices from "
+            "Travelpayouts (not guaranteed bookable, prices ~48h old).")
+    if ignored:
+        note += f" These preferences couldn't be applied to cached data: {', '.join(ignored)}."
+
+    return {
+        "offers": offers,
+        "source": "travelpayouts_cached",
+        "applied": {"max_price": max_price} if max_price is not None else {},
+        "total_found": len(cached),
+        "total_after_filters": len(offers),
+        "note": note,
+        "duffel_error": duffel_error,
+    }
 
 
 # JSON schema advertised to the model. Kept next to the function so the two never
