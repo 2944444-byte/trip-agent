@@ -17,10 +17,21 @@ uses tools to look up real options.
 ```bash
 pip install -r requirements.txt
 cp .env.example .env      # then fill in your keys
-python main.py
+
+python main.py            # command-line chat
+# — or —
+python web.py             # web chat UI at http://127.0.0.1:5000
 ```
 
 See [PROMPTS.md](PROMPTS.md) for copy-paste example prompts to try once it's running.
+
+## Web UI
+
+`web.py` is a minimal [Flask](https://flask.palletsprojects.com/) wrapper around the
+same agent loop (`run_agent_turn`). It serves a single self-contained chat page
+(inline HTML/CSS/JS — no build step) and a `/chat` JSON endpoint; booking links in
+replies are rendered clickable. Conversation state is kept in-process for one local
+user (a demo UI, not a multi-user server) — the **Reset** button starts a fresh chat.
 
 ## Testing
 
