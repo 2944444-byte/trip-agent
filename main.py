@@ -4,6 +4,7 @@ from datetime import date
 from openai import OpenAI
 
 import config
+from skills.loader import skills_prompt
 from tools import AVAILABLE_TOOLS, TOOLS
 
 config.require_llm_key()
@@ -78,8 +79,15 @@ def run_agent_turn(messages, max_steps=config.MAX_TOOL_STEPS):
 
 
 def main():
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    print("Travel Agent — type 'exit' to quit.\n")
+    # Compose the base prompt with any Markdown skills (skills/*/SKILL.md).
+    skills_text, skill_names = skills_prompt()
+    system_prompt = SYSTEM_PROMPT + skills_text
+
+    messages = [{"role": "system", "content": system_prompt}]
+    print("Travel Agent — type 'exit' to quit.")
+    if skill_names:
+        print(f"Loaded skills: {', '.join(skill_names)}")
+    print()
     while True:
         user_input = input("You: ").strip()
         if user_input.lower() in {"exit", "quit"}:

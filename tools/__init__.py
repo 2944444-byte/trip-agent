@@ -14,8 +14,10 @@ _REGISTRY = [
     (FLIGHT_SCHEMA, search_flights),
     # (HOTEL_SCHEMA, search_hotels),  # TODO: add when the hotel tool lands.
 ]
-# Note: the flight tool internally delegates domain judgment to the Flight Expert
-# skill (skills/flight_expert.py) and builds verified links via tools.booking_links.
+# Note: the flight tool applies deterministic filtering/ranking via
+# tools.flight_ranking and builds verified links via tools.booking_links. The
+# advisory expertise is a Markdown skill (skills/flight_expert/SKILL.md) loaded
+# into the model by skills.loader.
 
 # Schemas advertised to the model, and the name -> implementation dispatch table.
 TOOLS = [schema for schema, _ in _REGISTRY]

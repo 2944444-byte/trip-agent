@@ -62,48 +62,63 @@ commit keys**.
 
 ```
 trip-agent/
-├── main.py                  # entry point + the agent loop (run → decide → act → observe)
-├── config.py                # constants + secrets (loads .env), key validation
+├── main.py                     # entry point + the agent loop (run → decide → act → observe)
+├── config.py                   # constants + secrets (loads .env), key validation
 ├── requirements.txt
-├── .env.example             # template; copy to .env and fill in
-├── skills/
-│   └── flight_expert.py     # Flight Expert skill: normalize/filter/rank/annotate offers
-└── tools/
-    ├── __init__.py          # tool registry: TOOLS (schemas) + AVAILABLE_TOOLS (dispatch)
-    ├── flight.py            # search_flights: IATA → Duffel → skill → verified link
-    ├── duffel.py            # low-level Duffel Flights API client (I/O boundary)
-    └── booking_links.py     # deterministic + HTTP-verified booking links (anti-hallucination)
+├── .env.example                # template; copy to .env and fill in
+├── skills/                     # SKILLS = expertise as Markdown, injected into the model
+│   ├── loader.py               # reads SKILL.md files, injects them into the system prompt
+│   └── flight_expert/
+│       └── SKILL.md            # Flight Expert skill: how to advise on flight offers
+└── tools/                      # TOOLS = code the model calls
+    ├── __init__.py             # tool registry: TOOLS (schemas) + AVAILABLE_TOOLS (dispatch)
+    ├── flight.py               # search_flights: IATA → Duffel → ranking → verified link
+    ├── flight_ranking.py       # mechanical normalize/filter/rank/annotate engine
+    ├── duffel.py               # low-level Duffel Flights API client (I/O boundary)
+    └── booking_links.py        # deterministic + HTTP-verified booking links (anti-hallucination)
 ```
+
+**Tools vs. skills.** A **tool** is code the model *calls* (a Python function +
+JSON schema). A **skill** is expertise the model *reads* — a `SKILL.md` file with
+frontmatter (`name`, `description`) plus instructions, loaded into the system
+prompt by `skills/loader.py`. Tools do; skills advise.
 
 **Adding a tool:** write a plain function + a `SCHEMA` dict in a module under
 `tools/`, then add one `(SCHEMA, function)` row to `_REGISTRY` in
 `tools/__init__.py`. The dispatch name is derived from the schema, so it can't
 drift from what the model is told.
 
-**How the flight tool is layered:** `tools/flight.py` is thin orchestration. It
-resolves IATA codes, calls `tools/duffel.py` for live offers, hands them to the
-`skills/flight_expert.py` skill (the domain brain — a pure, testable
-filter/rank/annotate layer, *not* a sub-agent), and attaches a verified link from
-`tools/booking_links.py`. The model only translates the user's words into the
-structured preference arguments; our code applies the judgment.
+**Adding a skill:** create `skills/<name>/SKILL.md` with `name` + `description`
+frontmatter and an instructions body. It's picked up automatically on startup.
+
+**How the flight feature is layered:** `tools/flight.py` is thin orchestration —
+it resolves IATA codes, calls `tools/duffel.py` for live offers, runs the
+deterministic `tools/flight_ranking.py` engine (filter/rank/annotate by the
+structured preferences), and attaches a verified link from `tools/booking_links.py`.
+The **Flight Expert skill** (`skills/flight_expert/SKILL.md`) is the advisory
+brain loaded into the model — it guides how to read baggage/fare conditions, weigh
+trade-offs, keep groups together, and share only verified links. The model turns
+the user's words into preference arguments; the ranking engine applies them; the
+skill shapes the advice.
 
 ## Roadmap and current status
 
 1. **[DONE]** MVP: basic conversational agent, no tools.
 2. **[DONE]** Tool 1 — flight search. Started as a mock, then Travelpayouts (cached),
    now **Duffel** for live request-time offers. Same stable signature throughout.
-3. **[DONE]** **Flight Expert skill** — evaluates advanced preferences: baggage
-   (checked vs. carry-on), refundable/change conditions, stops, cabin, airline
-   include/exclude, budget. Filters, ranks, and annotates offers with expert notes.
+3. **[DONE]** **Flight Expert skill** (`skills/flight_expert/SKILL.md`) — advises on
+   baggage (checked vs. carry-on), refundable/change conditions, stops, cabin, airline
+   preference, budget, and group-appropriate choices. The deterministic filter/rank
+   is `tools/flight_ranking.py`; the Markdown skill guides how results are explained.
 4. **[DONE]** **Verified booking links** — links are built deterministically by our
    code and HTTP-checked (status < 400) before being surfaced, so the agent can
    never hallucinate a URL. Only `verified: true` links are shared.
 5. **[TODO]** Tool 2 — hotel search (same pattern as flights).
    Suggested signature: `search_hotels(city, checkin, checkout, guests=1, room_type=None)`.
    A `build_hotel_search_url` helper already exists in `tools/booking_links.py` for it.
-6. **[TODO]** Hotel Expert skill — the hotels equivalent of the Flight Expert:
-   categorize by type and apply group-appropriateness logic (e.g. friends → separate
-   beds, not one romantic double).
+6. **[TODO]** Hotel Expert skill — a `skills/hotel_expert/SKILL.md` mirroring the
+   Flight Expert: categorize by type and apply group-appropriateness logic (e.g.
+   friends → separate beds, not one romantic double).
 
 ### Provider caveat (be honest with users)
 

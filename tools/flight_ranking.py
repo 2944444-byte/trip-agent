@@ -1,16 +1,15 @@
-"""The "Flight Expert" skill.
+"""Flight ranking engine (mechanical helper for the flight tool).
 
-A deterministic reasoning layer over raw Duffel offers. It owns the flight
-domain expertise: normalizing airline offers into a clean shape, filtering by
-advanced traveler preferences (baggage, refundability, stops, airline), ranking
-them, and annotating each with plain-language expert notes.
+Pure, side-effect-free functions that normalize raw Duffel offers, filter them by
+structured traveler preferences (baggage, refundability, stops, airline), rank,
+and annotate each with plain-language notes. No network, no model call — so it's
+fully unit-testable.
 
-Design choice: this is a pure, side-effect-free layer (no network, no model
-call) rather than a sub-agent. That keeps the expertise unit-testable and
-deterministic; the language model's job is only to translate a user's words into
-the structured `preferences` dict (via the tool schema), and our code applies the
-judgment. Network concerns (fetching offers, verifying booking links) live in the
-tools layer, not here.
+This is deliberately just the CODE. The *expertise* — how to interpret these
+offers and advise a traveler — lives in the Flight Expert skill
+(skills/flight_expert/SKILL.md), which is loaded into the model as instructions.
+The model translates a user's words into the preference dict; this engine applies
+the deterministic filtering/ranking; the skill guides how results are explained.
 """
 
 # --- Normalization -----------------------------------------------------------

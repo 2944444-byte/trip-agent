@@ -16,7 +16,7 @@ import functools
 import airportsdata
 
 from config import MAX_FLIGHT_RESULTS
-from skills import flight_expert
+from tools import flight_ranking
 from tools.booking_links import verified_flight_link
 from tools.duffel import DuffelError, search_offers
 
@@ -144,7 +144,7 @@ def search_flights(origin, destination, depart_date, return_date=None, passenger
         "max_price": _coerce_float(max_price, default=None),
         "sort_by": sort_by,
     }
-    result = flight_expert.recommend(raw_offers, preferences, limit=MAX_FLIGHT_RESULTS)
+    result = flight_ranking.recommend(raw_offers, preferences, limit=MAX_FLIGHT_RESULTS)
 
     # Attach ONE verified booking link for the searched route (see booking_links).
     result["booking_link"] = verified_flight_link(
