@@ -25,8 +25,9 @@ See [PROMPTS.md](PROMPTS.md) for copy-paste example prompts to try once it's run
 ## Testing
 
 Unit tests cover the tool logic (passenger coercion, IATA conversion, registry
-integrity, and `search_flights` response shaping). They hit no network and need no
-API keys — the HTTP call is mocked.
+integrity, the Flight Expert skill's filtering/ranking, booking-link building, and
+the flight-tool orchestration). They hit no network and need no API keys — the
+Duffel call and link verification are mocked.
 
 ```bash
 pip install -r requirements-dev.txt
@@ -38,10 +39,11 @@ python -m pytest
 Set these via a local `.env` file (loaded automatically) — **never hardcode or
 commit keys**.
 
-| Variable               | Purpose                                                        |
-| ---------------------- | -------------------------------------------------------------- |
-| `LLM_API_KEY`          | Groq API key (base URL `https://api.groq.com/openai/v1`).      |
-| `TRAVELPAYOUTS_TOKEN`  | Free token from travelpayouts.com (cached flight price data).  |
+| Variable               | Purpose                                                                   |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `LLM_API_KEY`          | Groq API key (base URL `https://api.groq.com/openai/v1`).                 |
+| `DUFFEL_API_TOKEN`     | Duffel Flights API token — live offers + baggage/refund conditions. Free test token at [app.duffel.com](https://app.duffel.com). |
+| `TRAVELPAYOUTS_TOKEN`  | *(legacy, optional)* cached-price source, no longer used by the tool.     |
 
 ## Design decisions (do not silently reverse)
 
@@ -60,13 +62,17 @@ commit keys**.
 
 ```
 trip-agent/
-├── main.py            # entry point + the agent loop (run → decide → act → observe)
-├── config.py          # constants + secrets (loads .env), key validation
+├── main.py                  # entry point + the agent loop (run → decide → act → observe)
+├── config.py                # constants + secrets (loads .env), key validation
 ├── requirements.txt
-├── .env.example       # template; copy to .env and fill in
+├── .env.example             # template; copy to .env and fill in
+├── skills/
+│   └── flight_expert.py     # Flight Expert skill: normalize/filter/rank/annotate offers
 └── tools/
-    ├── __init__.py    # tool registry: TOOLS (schemas) + AVAILABLE_TOOLS (dispatch)
-    └── flight.py      # search_flights + its JSON schema
+    ├── __init__.py          # tool registry: TOOLS (schemas) + AVAILABLE_TOOLS (dispatch)
+    ├── flight.py            # search_flights: IATA → Duffel → skill → verified link
+    ├── duffel.py            # low-level Duffel Flights API client (I/O boundary)
+    └── booking_links.py     # deterministic + HTTP-verified booking links (anti-hallucination)
 ```
 
 **Adding a tool:** write a plain function + a `SCHEMA` dict in a module under
@@ -74,17 +80,37 @@ trip-agent/
 `tools/__init__.py`. The dispatch name is derived from the schema, so it can't
 drift from what the model is told.
 
+**How the flight tool is layered:** `tools/flight.py` is thin orchestration. It
+resolves IATA codes, calls `tools/duffel.py` for live offers, hands them to the
+`skills/flight_expert.py` skill (the domain brain — a pure, testable
+filter/rank/annotate layer, *not* a sub-agent), and attaches a verified link from
+`tools/booking_links.py`. The model only translates the user's words into the
+structured preference arguments; our code applies the judgment.
+
 ## Roadmap and current status
 
 1. **[DONE]** MVP: basic conversational agent, no tools.
-2. **[DONE]** Tool 1 — flight search. Built first as a mock to teach the tool loop,
-   then switched to the real Travelpayouts API. Same signature both times.
-3. **[TODO]** Tool 2 — hotel search (same pattern as flights).
+2. **[DONE]** Tool 1 — flight search. Started as a mock, then Travelpayouts (cached),
+   now **Duffel** for live request-time offers. Same stable signature throughout.
+3. **[DONE]** **Flight Expert skill** — evaluates advanced preferences: baggage
+   (checked vs. carry-on), refundable/change conditions, stops, cabin, airline
+   include/exclude, budget. Filters, ranks, and annotates offers with expert notes.
+4. **[DONE]** **Verified booking links** — links are built deterministically by our
+   code and HTTP-checked (status < 400) before being surfaced, so the agent can
+   never hallucinate a URL. Only `verified: true` links are shared.
+5. **[TODO]** Tool 2 — hotel search (same pattern as flights).
    Suggested signature: `search_hotels(city, checkin, checkout, guests=1, room_type=None)`.
-4. **[TODO]** The **"Skill"** — promote the hotel tool into a dedicated hotel-expert
-   module that categorizes hotels by type and applies logic such as: do **not**
-   recommend a romantic couple's room when the group is friends. This is where the
-   interesting reasoning lives.
+   A `build_hotel_search_url` helper already exists in `tools/booking_links.py` for it.
+6. **[TODO]** Hotel Expert skill — the hotels equivalent of the Flight Expert:
+   categorize by type and apply group-appropriateness logic (e.g. friends → separate
+   beds, not one romantic double).
+
+### Provider caveat (be honest with users)
+
+With a Duffel **test** token, offers are realistically shaped but **synthetic** (not
+real market prices/availability). A **live** token returns real airline offers;
+some airlines require approval first. Prices come in each offer's own currency
+(often not ILS), so the agent notes the currency rather than assuming a conversion.
 
 ## Key lessons learned (each cost a real debugging step)
 
