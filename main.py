@@ -75,14 +75,15 @@ def run_agent_turn(messages, max_steps=config.MAX_TOOL_STEPS):
 def main():
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     print("Travel Agent — type 'exit' to quit.\n")
-    user_input = input("You: ").strip()
-    while user_input.lower() not in {"exit", "quit"}:
+    while True:
+        user_input = input("You: ").strip()
+        if user_input.lower() in {"exit", "quit"}:
+            break
         if not user_input:
             continue
         messages.append({"role": "user", "content": user_input})
         reply = run_agent_turn(messages)
         print(f"\nAgent: {reply}\n")
-        user_input = input("You: ").strip()
 
 
 if __name__ == "__main__":
