@@ -1,6 +1,11 @@
 """Unit tests for deterministic booking-link building and verification."""
 import tools.booking_links as booking_links
-from tools.booking_links import build_flight_search_url, build_hotel_search_url, verify_url
+from tools.booking_links import (
+    build_flight_search_url,
+    build_hotel_search_url,
+    verified_hotel_link,
+    verify_url,
+)
 
 
 # --- deterministic URL building ----------------------------------------------
@@ -23,6 +28,13 @@ def test_build_hotel_url_contains_city_and_dates():
     assert "Rome" in url
     assert "checkin=2026-11-07" in url and "checkout=2026-11-10" in url
     assert "group_adults=2" in url
+
+
+def test_verified_hotel_link_uses_name_and_city(monkeypatch):
+    monkeypatch.setattr(booking_links.requests, "get", lambda *a, **k: _FakeResp(200))
+    result = verified_hotel_link("Hotel Artemide", "Rome", "2026-11-07", "2026-11-10", guests=2)
+    assert result["verified"] is True
+    assert "Hotel" in result["url"] and "Rome" in result["url"]
 
 
 # --- verification (HTTP mocked) ----------------------------------------------

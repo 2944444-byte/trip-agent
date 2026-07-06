@@ -1,18 +1,21 @@
-"""Low-level Duffel Flights API client.
+"""Low-level Duffel API client (Flights + Stays).
 
-Thin wrapper around the one endpoint we need: creating an offer request, which
-returns live (request-time, not cached) offers from airlines. Everything above
-this layer (normalization, expert filtering, booking links) lives elsewhere so
-this file stays a pure I/O boundary.
+Thin wrapper around the two endpoints we need — creating a flight offer request
+and searching for accommodation. Both return live (request-time, not cached)
+results. Everything above this layer (normalization, expert filtering, booking
+links) lives elsewhere so this file stays a pure I/O boundary.
 
-Docs: https://duffel.com/docs/api/v2/offer-requests/create-offer-request
+Docs:
+- Flights: https://duffel.com/docs/api/v2/offer-requests/create-offer-request
+- Stays:   https://duffel.com/docs/api/v2/search
 """
 import requests
 
 from config import DUFFEL_API_TOKEN, DUFFEL_BASE_URL, DUFFEL_VERSION
 
 _OFFER_REQUESTS_URL = f"{DUFFEL_BASE_URL}/air/offer_requests"
-_TIMEOUT_SECONDS = 30  # airline searches are slower than a cache lookup
+_STAYS_SEARCH_URL = f"{DUFFEL_BASE_URL}/stays/search"
+_TIMEOUT_SECONDS = 30  # live searches are slower than a cache lookup
 
 
 class DuffelError(Exception):
@@ -26,6 +29,30 @@ def _headers():
         "Content-Type": "application/json",
         "Accept": "application/json",
     }
+
+
+def _post(url, data):
+    """POST {"data": data} to Duffel and return the response's `data` object.
+
+    Raises DuffelError on missing token, network failure, or a non-2xx response.
+    """
+    if not DUFFEL_API_TOKEN:
+        raise DuffelError(
+            "DUFFEL_API_TOKEN is not set. Get a free test token at "
+            "https://app.duffel.com (Developers -> Access tokens)."
+        )
+    try:
+        resp = requests.post(
+            url, json={"data": data}, headers=_headers(), timeout=_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException as e:
+        raise DuffelError(f"Duffel request failed: {e}") from e
+
+    if resp.status_code >= 400:
+        # Surface Duffel's own error message when present; it's usually specific.
+        raise DuffelError(f"Duffel API error {resp.status_code}: {_extract_error(resp)}")
+
+    return resp.json().get("data", {})
 
 
 def search_offers(slices, passenger_count, cabin_class="economy", max_connections=None):
@@ -46,12 +73,6 @@ def search_offers(slices, passenger_count, cabin_class="economy", max_connection
     Raises:
         DuffelError: on missing token, network failure, or a non-2xx response.
     """
-    if not DUFFEL_API_TOKEN:
-        raise DuffelError(
-            "DUFFEL_API_TOKEN is not set. Get a free test token at "
-            "https://app.duffel.com (Developers -> Access tokens)."
-        )
-
     data = {
         "slices": slices,
         "passengers": [{"type": "adult"} for _ in range(passenger_count)],
@@ -60,23 +81,37 @@ def search_offers(slices, passenger_count, cabin_class="economy", max_connection
     if max_connections is not None:
         data["max_connections"] = max_connections
 
-    try:
-        resp = requests.post(
-            _OFFER_REQUESTS_URL,
-            json={"data": data},
-            headers=_headers(),
-            timeout=_TIMEOUT_SECONDS,
-        )
-    except requests.RequestException as e:
-        raise DuffelError(f"Duffel request failed: {e}") from e
+    return _post(_OFFER_REQUESTS_URL, data).get("offers", [])
 
-    if resp.status_code >= 400:
-        # Surface Duffel's own error message when present; it's usually specific.
-        detail = _extract_error(resp)
-        raise DuffelError(f"Duffel API error {resp.status_code}: {detail}")
 
-    payload = resp.json()
-    return payload.get("data", {}).get("offers", [])
+def search_stays(check_in_date, check_out_date, latitude, longitude,
+                 guests=1, rooms=1, radius_km=10):
+    """Search live accommodation availability and return the raw results list.
+
+    Args:
+        check_in_date, check_out_date: ISO dates "YYYY-MM-DD".
+        latitude, longitude: search center (the city's coordinates).
+        guests: number of adult guests (>= 1).
+        rooms: number of rooms required (>= 1).
+        radius_km: search radius around the coordinates, in kilometres.
+
+    Returns:
+        The list of raw stay search-result dicts from Duffel.
+
+    Raises:
+        DuffelError: on missing token, network failure, or a non-2xx response.
+    """
+    data = {
+        "check_in_date": check_in_date,
+        "check_out_date": check_out_date,
+        "rooms": rooms,
+        "guests": [{"type": "adult"} for _ in range(guests)],
+        "location": {
+            "radius": radius_km,
+            "geographic_coordinates": {"latitude": latitude, "longitude": longitude},
+        },
+    }
+    return _post(_STAYS_SEARCH_URL, data).get("results", [])
 
 
 def _extract_error(resp):

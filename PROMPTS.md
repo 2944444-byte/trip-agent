@@ -48,8 +48,23 @@ Give me the booking link for that flight.
 ```
 Expect: the agent shares ONLY the verified `booking_link.url` from the tool result. If it wasn't verified, it says a verified link isn't available — it must NOT invent a URL.
 
-## 8. Hotel question → honest "not yet"
+## 8. Hotel search — group of friends (group dynamics)
 ```
-Can you also book us a hotel in Rome for those nights?
+Find a hotel in Rome for 3 friends, 2026-11-07 to 2026-11-09, budget around 600 total, breakfast included and free cancellation.
 ```
-Expect: the agent honestly says it has no hotel tool yet (the next feature).
+Expect: a `search_hotels` call with `guests=3`, `breakfast_required=true`, `free_cancellation_only=true`, `max_price=600`. The Hotel Expert should recommend **separate beds / multiple rooms or an apartment** (not one double), and call out cancellation, breakfast, rating, and location — with a verified booking link per hotel.
+
+## 9. Hotel for a couple (contrast with #8)
+```
+A romantic hotel in Paris for me and my partner, 2026-12-01 to 2026-12-04, 4-star, central.
+```
+Expect: `guests=2`, `min_rating=4`; a double room is appropriate here, and central location is weighed in.
+
+## 10. Booking link must be real (anti-hallucination, hotels)
+```
+Give me the booking link for the first hotel.
+```
+Expect: only the verified `booking_link.url` from the tool result — never an invented URL.
+
+> Hotel search needs a Duffel token with **Stays** enabled. Without it you'll get a
+> graceful `403 ... feature not enabled` message, not a crash.

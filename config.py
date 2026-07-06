@@ -26,6 +26,10 @@ DUFFEL_VERSION = "v2"
 # How many recommended offers the flight tool returns to the model at most.
 MAX_FLIGHT_RESULTS = 5
 
+# How many recommended hotels the hotel tool returns, and the search radius.
+MAX_HOTEL_RESULTS = 5
+HOTEL_SEARCH_RADIUS_KM = 8
+
 
 def require_llm_key():
     """Fail fast with a friendly message if the LLM key is missing."""

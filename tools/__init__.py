@@ -9,15 +9,16 @@ drift from the advertised tool name.
 To add a tool (e.g. hotels): import its function + SCHEMA and add one row below.
 """
 from tools.flight import SCHEMA as FLIGHT_SCHEMA, search_flights
+from tools.hotel import SCHEMA as HOTEL_SCHEMA, search_hotels
 
 _REGISTRY = [
     (FLIGHT_SCHEMA, search_flights),
-    # (HOTEL_SCHEMA, search_hotels),  # TODO: add when the hotel tool lands.
+    (HOTEL_SCHEMA, search_hotels),
 ]
-# Note: the flight tool applies deterministic filtering/ranking via
-# tools.flight_ranking and builds verified links via tools.booking_links. The
-# advisory expertise is a Markdown skill (skills/flight_expert/SKILL.md) loaded
-# into the model by skills.loader.
+# Note: each tool applies deterministic filtering/ranking (tools.flight_ranking,
+# tools.hotel_ranking) and builds verified links via tools.booking_links. The
+# advisory expertise lives in Markdown skills (skills/*/SKILL.md), loaded into the
+# model by skills.loader.
 
 # Schemas advertised to the model, and the name -> implementation dispatch table.
 TOOLS = [schema for schema, _ in _REGISTRY]

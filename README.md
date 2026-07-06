@@ -68,13 +68,17 @@ trip-agent/
 ├── .env.example                # template; copy to .env and fill in
 ├── skills/                     # SKILLS = expertise as Markdown, injected into the model
 │   ├── loader.py               # reads SKILL.md files, injects them into the system prompt
-│   └── flight_expert/
-│       └── SKILL.md            # Flight Expert skill: how to advise on flight offers
+│   ├── flight_expert/
+│   │   └── SKILL.md            # Flight Expert skill: how to advise on flight offers
+│   └── hotel_expert/
+│       └── SKILL.md            # Hotel Expert skill: group dynamics, policy & amenity advice
 └── tools/                      # TOOLS = code the model calls
     ├── __init__.py             # tool registry: TOOLS (schemas) + AVAILABLE_TOOLS (dispatch)
     ├── flight.py               # search_flights: IATA → Duffel → ranking → verified link
-    ├── flight_ranking.py       # mechanical normalize/filter/rank/annotate engine
-    ├── duffel.py               # low-level Duffel Flights API client (I/O boundary)
+    ├── flight_ranking.py       # mechanical flight normalize/filter/rank/annotate engine
+    ├── hotel.py                # search_hotels: city → Duffel Stays → ranking → verified links
+    ├── hotel_ranking.py        # mechanical hotel normalize/filter/rank/annotate engine
+    ├── duffel.py               # low-level Duffel API client — Flights + Stays (I/O boundary)
     └── booking_links.py        # deterministic + HTTP-verified booking links (anti-hallucination)
 ```
 
@@ -113,12 +117,21 @@ skill shapes the advice.
 4. **[DONE]** **Verified booking links** — links are built deterministically by our
    code and HTTP-checked (status < 400) before being surfaced, so the agent can
    never hallucinate a URL. Only `verified: true` links are shared.
-5. **[TODO]** Tool 2 — hotel search (same pattern as flights).
-   Suggested signature: `search_hotels(city, checkin, checkout, guests=1, room_type=None)`.
-   A `build_hotel_search_url` helper already exists in `tools/booking_links.py` for it.
-6. **[TODO]** Hotel Expert skill — a `skills/hotel_expert/SKILL.md` mirroring the
-   Flight Expert: categorize by type and apply group-appropriateness logic (e.g.
-   friends → separate beds, not one romantic double).
+5. **[DONE]** Tool 2 — hotel search (`search_hotels`) backed by **Duffel Stays** for
+   live availability. Same layered pattern: `tools/hotel.py` orchestrates,
+   `tools/hotel_ranking.py` filters/ranks, booking links are verified per hotel.
+   Takes exact dates, guests, rooms, room type, budget, breakfast, cancellation, rating.
+6. **[DONE]** **Hotel Expert skill** (`skills/hotel_expert/SKILL.md`) — advises like a
+   seasoned consultant: group dynamics (friends → separate beds/apartment, not a
+   romantic double unless it's a couple) and policy/amenity awareness (cancellation,
+   breakfast, location/proximity to the centre, star rating vs. price).
+7. **[TODO]** Optional: a live-mode Duffel token (real availability), currency
+   normalization, and a proper geocoder to replace the curated city-coordinate map.
+
+> **Duffel Stays scope:** hotel search needs a token with Stays enabled. If you see
+> `403 ... This feature is not enabled`, enable Stays for your token at
+> [app.duffel.com](https://app.duffel.com); the agent reports this gracefully rather
+> than crashing.
 
 ### Provider caveat (be honest with users)
 

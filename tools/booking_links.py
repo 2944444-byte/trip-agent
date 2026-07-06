@@ -33,17 +33,25 @@ def build_flight_search_url(origin, destination, depart_date, return_date=None, 
     return f"https://www.google.com/travel/flights?q={quote_plus(q)}"
 
 
-def build_hotel_search_url(city, checkin, checkout, guests=1):
-    """Build a Booking.com search URL for a city/date (deterministic).
+def build_hotel_search_url(query, checkin, checkout, guests=1):
+    """Build a Booking.com search URL for a search string/date (deterministic).
 
-    Provided for the upcoming hotel tool; not yet wired into a live tool.
+    `query` can be a city ("Rome") or a specific property + city ("Hotel Artemide,
+    Rome") to land on that hotel's availability.
     """
     params = (
-        f"ss={quote_plus(city)}"
+        f"ss={quote_plus(query)}"
         f"&checkin={checkin}&checkout={checkout}"
         f"&group_adults={max(int(guests), 1)}"
     )
     return f"https://www.booking.com/searchresults.html?{params}"
+
+
+def verified_hotel_link(name, city, checkin, checkout, guests=1):
+    """Build a Booking.com link for a specific hotel and verify it in one call."""
+    query = f"{name}, {city}" if name and city else (name or city or "")
+    url = build_hotel_search_url(query, checkin, checkout, guests)
+    return verify_url(url)
 
 
 def verify_url(url):
