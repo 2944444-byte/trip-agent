@@ -1,11 +1,3 @@
-# Example prompts
-
-Copy-paste these into the `You:` prompt after running `python main.py`.
-They exercise the agent's main behaviors. (`exit` or `quit` to leave.)
-
-> Needs `DUFFEL_API_TOKEN` set in `.env` (free test token at app.duffel.com).
-> With a *test* token the offers are realistically shaped but synthetic.
-
 ## 1. The headline use case (flight + budget + preferences)
 ```
 I want to fly to Rome with 2 friends for a weekend in November, leaving Tel Aviv on 2026-11-07 and back on 2026-11-09. Budget around 2500 per person, and I'd like a checked bag included.
