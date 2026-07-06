@@ -20,18 +20,38 @@ cp .env.example .env      # then fill in your keys
 
 python main.py            # command-line chat
 # — or —
-python web.py             # web chat UI at http://127.0.0.1:5000
+python server.py          # web chat UI at http://127.0.0.1:8080
 ```
 
 See [PROMPTS.md](PROMPTS.md) for copy-paste example prompts to try once it's running.
 
 ## Web UI
 
-`web.py` is a minimal [Flask](https://flask.palletsprojects.com/) wrapper around the
-same agent loop (`run_agent_turn`). It serves a single self-contained chat page
-(inline HTML/CSS/JS — no build step) and a `/chat` JSON endpoint; booking links in
-replies are rendered clickable. Conversation state is kept in-process for one local
-user (a demo UI, not a multi-user server) — the **Reset** button starts a fresh chat.
+`server.py` is a [FastAPI](https://fastapi.tiangolo.com/) wrapper around the same
+agent loop (`run_agent_turn`). It serves the static frontend and a small JSON API:
+
+- `POST /api/chat` `{message}` → `{reply}`
+- `POST /api/reset` → new conversation
+
+```
+frontend/
+├── index.html        # markup
+├── styles.css        # styling
+├── app.ts            # TypeScript source (edit this)
+├── app.js            # compiled output (the browser loads this)
+└── tsconfig.json     # tsc config
+```
+
+The UI is chat bubbles with a typing indicator, Enter-to-send, clickable example
+prompts, and clickable booking links; **Reset** starts a fresh chat. Conversation
+state is in-process for one local user (a demo UI, not a multi-user server).
+
+Run with `python server.py`, or `uvicorn server:app --reload` for auto-reload.
+Editing the UI logic means editing `app.ts` and recompiling:
+
+```bash
+cd frontend && tsc      # regenerates app.js (needs Node's TypeScript compiler)
+```
 
 ## Testing
 

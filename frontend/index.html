@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Travel Agent</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header>
+    <div class="title">✈️ Travel Agent <span class="sub">flights &amp; hotels</span></div>
+    <button id="reset" title="Start over">Reset</button>
+  </header>
+
+  <main id="chat">
+    <div class="hint">
+      Ask about flights and hotels. Try:
+      <button class="example" type="button">Direct flights from TLV to Athens on 2026-11-14, cheapest first.</button>
+      <button class="example" type="button">Hotel in Rome for 3 friends, 2026-11-07 to 2026-11-09, breakfast included.</button>
+    </div>
+  </main>
+
+  <form id="form">
+    <textarea id="input" rows="1"
+      placeholder="Type your trip request…  (Enter to send, Shift+Enter for a new line)"></textarea>
+    <button id="send" type="submit">Send</button>
+  </form>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
