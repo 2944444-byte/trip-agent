@@ -1,9 +1,14 @@
-"""Low-level Duffel API client (Flights + Stays).
+"""Low-level Duffel API client (Flights + Stays) — SEARCH ONLY.
 
-Thin wrapper around the two endpoints we need — creating a flight offer request
-and searching for accommodation. Both return live (request-time, not cached)
-results. Everything above this layer (normalization, expert filtering, booking
-links) lives elsewhere so this file stays a pure I/O boundary.
+Thin wrapper around the two search endpoints we need — creating a flight offer
+request and searching for accommodation. Both are read-style operations: they
+return offers, they never book or charge anything.
+
+SAFETY: this client is search-only by design. It will ONLY call the two
+allowlisted search endpoints below; it can never create an order (`/air/orders`)
+or take a payment. So even a token that *had* booking permission could not buy
+through this code — and the recommended token doesn't have it anyway (grant
+`air.offer_requests`/`air.offers`, leave `air.orders` off).
 
 Docs:
 - Flights: https://duffel.com/docs/api/v2/offer-requests/create-offer-request
@@ -15,6 +20,8 @@ from config import DUFFEL_API_TOKEN, DUFFEL_BASE_URL, DUFFEL_VERSION
 
 _OFFER_REQUESTS_URL = f"{DUFFEL_BASE_URL}/air/offer_requests"
 _STAYS_SEARCH_URL = f"{DUFFEL_BASE_URL}/stays/search"
+# Allowlist: the ONLY endpoints this client may ever POST to. No booking/orders.
+_ALLOWED_ENDPOINTS = frozenset({_OFFER_REQUESTS_URL, _STAYS_SEARCH_URL})
 _TIMEOUT_SECONDS = 30  # live searches are slower than a cache lookup
 
 
@@ -41,6 +48,11 @@ def _post(url, data):
     as final (no point retrying a permission error). Raises DuffelError on missing
     token, exhausted retries, or a non-2xx response.
     """
+    # Safety guardrail: refuse to POST anywhere except the search allowlist, so
+    # this client can never be pointed at a booking/orders endpoint.
+    if url not in _ALLOWED_ENDPOINTS:
+        raise DuffelError(f"refusing non-search endpoint: {url}")
+
     if not DUFFEL_API_TOKEN:
         raise DuffelError(
             "DUFFEL_API_TOKEN is not set. Get a free test token at "

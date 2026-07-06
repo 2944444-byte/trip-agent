@@ -53,6 +53,20 @@ Editing the UI logic means editing `app.ts` and recompiling:
 cd frontend && tsc      # regenerates app.js (needs Node's TypeScript compiler)
 ```
 
+## Safety — search only, never books
+
+The agent **cannot buy anything.** It only *searches* and hands back links you click
+yourself. The Duffel client (`tools/duffel.py`) is search-only by design: it will
+only POST to the two allowlisted search endpoints (`/air/offer_requests`,
+`/stays/search`) and refuses any other endpoint (e.g. `/air/orders`) before making a
+request — there is no booking/payment code anywhere in the project.
+
+For the Duffel token, grant **`air.offer_requests`** (search) and **`air.offers`**
+(read) and leave **`air.orders`** (booking) off. Note: searching requires
+`air.offer_requests.create` — a GET-only token can't search at all, which is why a
+purely "read" token returns `403 insufficient_permissions`. Creating an offer
+request is a search, not a purchase.
+
 ## Testing
 
 Unit tests cover the tool logic (passenger coercion, IATA conversion, registry
