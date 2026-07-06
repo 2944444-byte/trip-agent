@@ -8,8 +8,8 @@ LLM_API_KEY = os.environ.get("LLM_API_KEY")
 TRAVELPAYOUTS_TOKEN = os.environ.get("TRAVELPAYOUTS_TOKEN")
 DUFFEL_API_TOKEN = os.environ.get("DUFFEL_API_TOKEN")
 
-LLM_BASE_URL = "https://api.groq.com/openai/v1"
-MODEL = "llama-3.1-8b-instant"
+LLM_BASE_URL = "https://openrouter.ai/api/v1"
+MODEL = "meta-llama/llama-3.3-70b-instruct:free"
 TEMPERATURE = 0.7
 
 MAX_TOOL_STEPS = 5

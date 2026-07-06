@@ -91,6 +91,48 @@ def _coerce_passengers(passengers):
     return _coerce_int(passengers, default=1, minimum=1) or 1
 
 
+# Weak models send junk for optional fields — the literal string "null", string
+# booleans ("true"), or a string where an array is expected. The schema stays
+# permissive (no enums, strings allowed) and we normalize everything here.
+_NULLISH = {"", "null", "none", "nil", "undefined"}
+
+
+def _coerce_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        v = value.strip().lower()
+        if v in {"true", "1", "yes", "y"}:
+            return True
+        if v in _NULLISH or v in {"false", "0", "no", "n"}:
+            return False
+    return default
+
+
+def _coerce_choice(value, allowed, default=None):
+    if isinstance(value, str) and value.strip().lower() in allowed:
+        return value.strip().lower()
+    return default
+
+
+def _coerce_codes(value):
+    """Normalize an airline-code list; strings like "null" or "LY,BA" are handled."""
+    if isinstance(value, list):
+        codes = [str(x).strip().upper() for x in value if str(x).strip()]
+        return codes or None
+    if isinstance(value, str):
+        v = value.strip()
+        if not v or v.lower() in _NULLISH:
+            return None
+        codes = [p.strip().upper() for p in v.split(",") if p.strip()]
+        return codes or None
+    return None
+
+
+_CABINS = {"economy", "premium_economy", "business", "first"}
+_FLIGHT_SORTS = {"price", "stops"}
+
+
 def search_flights(origin, destination, depart_date, return_date=None, passengers=1,
                    cabin_class="economy", max_stops=None, refundable_only=False,
                    min_checked_bags=None, require_carry_on=False,
@@ -98,7 +140,12 @@ def search_flights(origin, destination, depart_date, return_date=None, passenger
                    max_price=None, sort_by=None):
     passengers = _coerce_passengers(passengers)
     max_stops = _coerce_int(max_stops, default=None, minimum=0)
-    cabin_class = cabin_class or "economy"  # model may send null
+    cabin_class = _coerce_choice(cabin_class, _CABINS, "economy")
+    sort_by = _coerce_choice(sort_by, _FLIGHT_SORTS, None)
+    refundable_only = _coerce_bool(refundable_only)
+    require_carry_on = _coerce_bool(require_carry_on)
+    airlines_include = _coerce_codes(airlines_include)
+    airlines_exclude = _coerce_codes(airlines_exclude)
 
     origin_code = _to_iata(origin)
     destination_code = _to_iata(destination)
@@ -209,7 +256,11 @@ def _travelpayouts_fallback(origin, destination, depart_date, passengers, prefer
     }
 
 
+# Permissive types: weak models send string "null"/"true" or a string for arrays.
+# We accept those at the schema layer (so Groq doesn't 400) and coerce in code.
 _NUM = {"type": ["integer", "string", "null"]}
+_FLAG = {"type": ["boolean", "string", "null"]}
+_CODES = {"type": ["array", "string", "null"], "items": {"type": "string"}}
 SCHEMA = {
     "type": "function",
     "function": {
@@ -228,20 +279,18 @@ SCHEMA = {
                                 "description": "Optional return date for a round trip, YYYY-MM-DD."},
                 "passengers": {**_NUM, "description": "Number of adult travelers. Defaults to 1."},
                 "cabin_class": {"type": ["string", "null"],
-                                "enum": ["economy", "premium_economy", "business", "first", None],
-                                "description": "Cabin class. Defaults to economy."},
+                                "description": "Cabin class: economy, premium_economy, business, or "
+                                               "first. Defaults to economy."},
                 "max_stops": {**_NUM, "description": "Max connections per leg. 0 = direct only."},
-                "refundable_only": {"type": ["boolean", "null"], "description": "Keep only refundable fares."},
+                "refundable_only": {**_FLAG, "description": "Keep only refundable fares (true/false)."},
                 "min_checked_bags": {**_NUM, "description": "Require at least this many checked bags included."},
-                "require_carry_on": {"type": ["boolean", "null"], "description": "Require a carry-on bag included."},
-                "airlines_include": {"type": ["array", "null"], "items": {"type": "string"},
-                                     "description": "Only these airline IATA codes, e.g. ['LY','AZ']."},
-                "airlines_exclude": {"type": ["array", "null"], "items": {"type": "string"},
-                                     "description": "Exclude these airline IATA codes."},
+                "require_carry_on": {**_FLAG, "description": "Require a carry-on bag included (true/false)."},
+                "airlines_include": {**_CODES, "description": "Only these airline IATA codes, e.g. ['LY','AZ']."},
+                "airlines_exclude": {**_CODES, "description": "Exclude these airline IATA codes."},
                 "max_price": {"type": ["number", "string", "null"],
                               "description": "Drop offers above this amount (offer currency)."},
-                "sort_by": {"type": ["string", "null"], "enum": ["price", "stops", None],
-                            "description": "Ranking: cheapest first (default) or fewest stops."},
+                "sort_by": {"type": ["string", "null"],
+                            "description": "Ranking: 'price' (cheapest, default) or 'stops' (fewest)."},
             },
             "required": ["origin", "destination", "depart_date"],
         },

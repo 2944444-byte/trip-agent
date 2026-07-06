@@ -2,9 +2,12 @@ from config import HOTEL_SEARCH_RADIUS_KM, MAX_HOTEL_RESULTS
 from tools import hotel_ranking
 from tools.booking_links import verified_hotel_link
 from tools.duffel import DuffelError, search_stays
-from tools.flight import _airport_db  # cached IATA airport DB, offline coord fallback
+from tools.flight import _airport_db, _coerce_bool, _coerce_choice  # shared helpers
 from tools.geocoding import geocode_city
 from tools.mock_hotels import mock_hotels
+
+_HOTEL_SORTS = {"price", "rating", "review_score"}
+_NULLISH = {"", "null", "none", "nil", "undefined"}
 
 
 def _airport_coords(city):
@@ -57,13 +60,15 @@ def search_hotels(city, checkin, checkout, guests=1, rooms=1, room_type=None,
                   free_cancellation_only=False, sort_by=None):
     guests = _coerce_int(guests, default=1, minimum=1) or 1
     rooms = _coerce_int(rooms, default=1, minimum=1) or 1
+    if isinstance(room_type, str) and room_type.strip().lower() in _NULLISH:
+        room_type = None
 
     preferences = {
         "max_price": _coerce_float(max_price, default=None),
         "min_rating": _coerce_float(min_rating, default=None),
-        "breakfast_required": breakfast_required,
-        "free_cancellation_only": free_cancellation_only,
-        "sort_by": sort_by,
+        "breakfast_required": _coerce_bool(breakfast_required),
+        "free_cancellation_only": _coerce_bool(free_cancellation_only),
+        "sort_by": _coerce_choice(sort_by, _HOTEL_SORTS, None),
     }
 
     # Primary: live Duffel Stays availability (best-effort).
@@ -113,6 +118,7 @@ def search_hotels(city, checkin, checkout, guests=1, rooms=1, room_type=None,
 # model tends to fill every property (null for unused ones) and Groq validates
 # the schema server-side; our code defaults/coerces them.
 _NUM = {"type": ["integer", "string", "null"]}
+_FLAG = {"type": ["boolean", "string", "null"]}  # weak models send "true"/"null" strings
 SCHEMA = {
     "type": "function",
     "function": {
@@ -135,12 +141,11 @@ SCHEMA = {
                 "max_price": {"type": ["number", "string", "null"],
                               "description": "Max total price for the whole stay (offer currency)."},
                 "min_rating": {**_NUM, "description": "Minimum star rating, e.g. 3."},
-                "breakfast_required": {"type": ["boolean", "null"],
-                                       "description": "Only hotels that include breakfast."},
-                "free_cancellation_only": {"type": ["boolean", "null"],
-                                           "description": "Only hotels with free cancellation."},
-                "sort_by": {"type": ["string", "null"], "enum": ["price", "rating", "review_score", None],
-                            "description": "Ranking: cheapest (default), rating, or review_score."},
+                "breakfast_required": {**_FLAG, "description": "Only hotels that include breakfast (true/false)."},
+                "free_cancellation_only": {**_FLAG,
+                                           "description": "Only hotels with free cancellation (true/false)."},
+                "sort_by": {"type": ["string", "null"],
+                            "description": "Ranking: 'price' (default), 'rating', or 'review_score'."},
             },
             "required": ["city", "checkin", "checkout"],
         },

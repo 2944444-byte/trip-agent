@@ -33,6 +33,25 @@ def test_coerce_passengers(value, expected):
     assert _coerce_passengers(value) == expected
 
 
+def test_search_flights_tolerates_weak_model_junk(monkeypatch):
+    """Regression: llama-3.1-8b sent literal string "null" and string booleans for
+    optional params. The tool must coerce them, not crash."""
+    monkeypatch.setattr(flight, "search_offers", lambda *a, **k: [])
+    monkeypatch.setattr(flight, "search_cheap_prices",
+                        lambda *a, **k: [{"airline": "W4", "price": 380}])
+    monkeypatch.setattr(flight, "verified_flight_link",
+                        lambda *a, **k: {"url": "x", "verified": True, "status": 200})
+    # Exactly the failed_generation arguments from the 400 error.
+    result = search_flights(
+        "TLV", "ROM", "2026-11-07", return_date="2026-11-09", passengers="3",
+        max_price="2500", cabin_class="null", max_stops="null", refundable_only="null",
+        min_checked_bags="1", require_carry_on="null", airlines_include="null",
+        airlines_exclude="null", sort_by="null",
+    )
+    assert "error" not in result
+    assert result["offers"]  # 380 <= 2500 budget
+
+
 # --- IATA conversion ---------------------------------------------------------
 def test_to_iata_passthrough_code():
     assert _to_iata("TLV") == "TLV"
