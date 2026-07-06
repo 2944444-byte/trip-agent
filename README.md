@@ -135,13 +135,15 @@ skill shapes the advice.
    repeated identical tool calls within a turn and forces a text answer on the final
    step (`tool_choice="none"`), so a turn always returns a response. Duffel calls
    retry once on transient network errors but never on a 4xx.
-8. **[DONE]** **Dynamic geocoding** (`tools/geocoding.py`) — hotel cities resolve to
-   coordinates at runtime via the free, keyless Open-Meteo geocoder, so *any* city
-   works (no hardcoded city→coordinates table). If the geocoder is unreachable, it
-   falls back to an airport's coordinates for that city.
-9. **[TODO]** Optional: a live-mode Duffel token (real availability), currency
-   normalization. (The flight tool still keeps a small `_CITY_TO_IATA` metro-code
-   override with an `airportsdata` fallback — say the word to make that dynamic too.)
+8. **[DONE]** **Dynamic city resolution — no hardcoded city tables anywhere**
+   (`tools/geocoding.py`). Hotels geocode the city to coordinates via the free,
+   keyless Open-Meteo geocoder. Flights resolve city→IATA dynamically too: match
+   `airportsdata` by city name, then use the geocoded coordinates to disambiguate
+   same-named cities in different countries (e.g. London → LCY, not London, Ontario;
+   Rome → FCO, not a US "Rome") and pick the nearest major airport. Both fall back
+   to offline `airportsdata` lookups if the geocoder is unreachable.
+9. **[TODO]** Optional: a live-mode Duffel token (real availability) and currency
+   normalization.
 
 > **Duffel Stays scope:** for *live* hotel results, enable **Stays** on your token at
 > [app.duffel.com](https://app.duffel.com). Without it Duffel returns

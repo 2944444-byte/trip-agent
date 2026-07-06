@@ -11,6 +11,18 @@ from tools.duffel import DuffelError
 from tools.flight import SCHEMA, _coerce_passengers, _to_iata, get_iata_by_city, search_flights
 
 
+@pytest.fixture(autouse=True)
+def _offline_geocode(monkeypatch):
+    """Keep IATA resolution offline + deterministic (no real geocoder calls)."""
+    coords = {
+        "tel aviv": (32.0853, 34.7818), "rome": (41.9028, 12.4964),
+        "sydney": (-33.8688, 151.2093), "athens": (37.9838, 23.7275),
+        "barcelona": (41.3874, 2.1686), "paris": (48.8566, 2.3522),
+    }
+    monkeypatch.setattr(flight, "geocode_city",
+                        lambda c: coords.get((c or "").strip().lower()))
+
+
 # --- passenger coercion (the untrusted model/code boundary) ------------------
 @pytest.mark.parametrize("value, expected", [
     (3, 3), ("3", 3), ("  2 ", 2), (1, 1),
@@ -27,13 +39,16 @@ def test_to_iata_passthrough_code():
     assert _to_iata("tlv") == "TLV"
 
 
-def test_to_iata_curated_metro_map():
-    assert _to_iata("Rome") == "ROM"
+def test_to_iata_resolves_city_names_dynamically():
+    # No hardcoded map: resolved via geocoder + airportsdata, disambiguated by
+    # country (Rome -> the Italian airport, not a same-named US city).
     assert _to_iata("tel aviv") == "TLV"
+    assert _to_iata("Rome") == "FCO"
 
 
-def test_to_iata_airportsdata_fallback():
-    assert len(_to_iata("Sydney")) == 3
+def test_to_iata_disambiguates_by_country():
+    # "Sydney" resolves to the Australian airport, not Sydney, Nova Scotia.
+    assert _to_iata("Sydney") == "SYD"
 
 
 def test_to_iata_unknown_returns_input_upper():

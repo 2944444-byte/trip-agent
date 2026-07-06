@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 LLM_API_KEY = os.environ.get("LLM_API_KEY")
-TRAVELPAYOUTS_TOKEN = os.environ.get("TRAVELPAYOUTS_TOKEN")  # legacy cached-price source
+TRAVELPAYOUTS_TOKEN = os.environ.get("TRAVELPAYOUTS_TOKEN")
 DUFFEL_API_TOKEN = os.environ.get("DUFFEL_API_TOKEN")
 
 LLM_BASE_URL = "https://api.groq.com/openai/v1"

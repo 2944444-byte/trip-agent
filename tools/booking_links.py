@@ -1,16 +1,4 @@
-"""Deterministic, verified booking links.
 
-Anti-hallucination strategy: the model NEVER writes a booking URL. Instead our
-code builds the link from known-good templates (route + dates + guests) and then
-makes a real HTTP request to confirm it resolves (status < 400). Only verified
-links are handed back, so the agent can present "actual, active source links"
-without any risk of an invented URL.
-
-Duffel test offers are not bookable via a public one-click URL, so for flights we
-return a metasearch link for the exact route/date (Google Flights). For hotels we
-return a Booking.com search link for the city/dates (used once the hotel tool
-lands).
-"""
 from urllib.parse import quote_plus
 
 import requests

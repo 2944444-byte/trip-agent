@@ -1,4 +1,5 @@
 import functools
+import math
 
 import airportsdata
 
@@ -6,34 +7,60 @@ from config import CURRENCY, MAX_FLIGHT_RESULTS
 from tools import flight_ranking
 from tools.booking_links import verified_flight_link
 from tools.duffel import DuffelError, search_offers
+from tools.geocoding import geocode_city
 from tools.travelpayouts import TravelpayoutsError, search_cheap_prices
-
-_CITY_TO_IATA = {
-    "tel aviv": "TLV", "rome": "ROM", "milan": "MIL", "venice": "VCE",
-    "naples": "NAP", "florence": "FLR", "paris": "PAR", "london": "LON",
-    "barcelona": "BCN", "athens": "ATH", "berlin": "BER",
-}
 
 
 @functools.lru_cache(maxsize=1)
-def _airport_db():    return airportsdata.load("IATA")
+def _airport_db():
+    """Load the IATA airport database once (it's a few MB) and cache it."""
+    return airportsdata.load("IATA")
+
+
+def _haversine_km(lat1, lon1, lat2, lon2):
+    r = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlam = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlam / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
 
 
 def get_iata_by_city(city_name):
-    target = city_name.strip().lower()
-    for iata, details in _airport_db().items():
-        city = details.get("city")
-        if city and city.lower() == target:
-            return iata
-    return None
+    """Resolve a city name to an airport IATA code dynamically (no hardcoded map).
+
+    Match airports by city name, then disambiguate same-named cities in different
+    countries by keeping only those near the geocoded city, preferring a major
+    ("International") airport / the nearest one. Falls back to an offline city-name
+    match if the geocoder is unavailable. Returns None if nothing matches.
+    """
+    target = (city_name or "").strip().lower()
+    if not target:
+        return None
+    candidates = [(iata, d) for iata, d in _airport_db().items()
+                  if (d.get("city") or "").lower() == target and d.get("lat") is not None]
+    if not candidates:
+        return None
+
+    coords = geocode_city(city_name)
+    if coords:
+        lat, lon = coords
+        near = [(iata, d) for iata, d in candidates
+                if _haversine_km(lat, lon, d["lat"], d["lon"]) <= 150]
+        if near:
+            intl = [c for c in near if "international" in (c[1].get("name") or "").lower()]
+            pool = intl or near
+            return min(pool, key=lambda c: _haversine_km(lat, lon, c[1]["lat"], c[1]["lon"]))[0]
+
+    intl = [iata for iata, d in candidates if "international" in (d.get("name") or "").lower()]
+    return intl[0] if intl else candidates[0][0]
 
 
 def _to_iata(place):
+    """Convert a city name (or 3-letter code) into an IATA code, best-effort."""
     p = (place or "").strip()
     if len(p) == 3 and p.isalpha():
         return p.upper()
-    if p.lower() in _CITY_TO_IATA:
-        return _CITY_TO_IATA[p.lower()]
     return get_iata_by_city(p) or p.upper()
 
 
