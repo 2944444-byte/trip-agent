@@ -121,20 +121,28 @@ skill shapes the advice.
    code and HTTP-checked (status < 400) before being surfaced, so the agent can
    never hallucinate a URL. Only `verified: true` links are shared.
 5. **[DONE]** Tool 2 — hotel search (`search_hotels`) backed by **Duffel Stays** for
-   live availability. Same layered pattern: `tools/hotel.py` orchestrates,
+   live availability, with a **mock fail-safe** (`tools/mock_hotels.py`): if the live
+   search can't run (no Stays scope, unknown city, network error) or returns nothing,
+   the tool returns clearly-labelled sample hotels (`source: "mock"`) so the agent
+   always responds. Same layered pattern: `tools/hotel.py` orchestrates,
    `tools/hotel_ranking.py` filters/ranks, booking links are verified per hotel.
-   Takes exact dates, guests, rooms, room type, budget, breakfast, cancellation, rating.
 6. **[DONE]** **Hotel Expert skill** (`skills/hotel_expert/SKILL.md`) — advises like a
    seasoned consultant: group dynamics (friends → separate beds/apartment, not a
    romantic double unless it's a couple) and policy/amenity awareness (cancellation,
-   breakfast, location/proximity to the centre, star rating vs. price).
-7. **[TODO]** Optional: a live-mode Duffel token (real availability), currency
+   breakfast, location/proximity to the centre, star rating vs. price). Discloses
+   when results are `mock` samples vs `duffel_live`.
+7. **[DONE]** **Reliability / no infinite loops** — the agent loop de-duplicates
+   repeated identical tool calls within a turn and forces a text answer on the final
+   step (`tool_choice="none"`), so a turn always returns a response. Duffel calls
+   retry once on transient network errors but never on a 4xx.
+8. **[TODO]** Optional: a live-mode Duffel token (real availability), currency
    normalization, and a proper geocoder to replace the curated city-coordinate map.
 
-> **Duffel Stays scope:** hotel search needs a token with Stays enabled. If you see
-> `403 ... This feature is not enabled`, enable Stays for your token at
-> [app.duffel.com](https://app.duffel.com); the agent reports this gracefully rather
-> than crashing.
+> **Duffel Stays scope:** for *live* hotel results, enable **Stays** on your token at
+> [app.duffel.com](https://app.duffel.com). Without it Duffel returns
+> `403 ... This feature is not enabled`, and the tool automatically serves labelled
+> **mock sample hotels** instead — so the agent still responds (just tell users the
+> samples aren't real availability).
 
 ### Provider caveat (be honest with users)
 

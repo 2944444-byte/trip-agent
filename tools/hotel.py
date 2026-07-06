@@ -1,4 +1,4 @@
-"""Hotel search tool (Duffel Stays-backed).
+"""Hotel search tool (Duffel Stays-backed, with a mock fail-safe).
 
 Orchestration layer with a stable signature. It:
   1. resolves a city name to search coordinates,
@@ -6,15 +6,17 @@ Orchestration layer with a stable signature. It:
   3. runs the hotel ranking engine to filter/rank/annotate by preferences,
   4. attaches a deterministic, HTTP-verified booking link to each hotel.
 
-Results are request-time (live availability + pricing), not cached. Each carries
-star rating, guest score, breakfast, and free-cancellation info. (With a Duffel
-*test* token the data is realistically shaped but synthetic.)
+Fail-safe: if the live search can't run (no Stays scope, unknown city, network
+error) or returns nothing, it falls back to clearly-labelled MOCK sample hotels so
+the agent always returns a usable response instead of erroring or looping. Mock
+results are tagged `source: "mock"` and the Hotel Expert skill discloses them.
 """
 from config import HOTEL_SEARCH_RADIUS_KM, MAX_HOTEL_RESULTS
 from tools import hotel_ranking
 from tools.booking_links import verified_hotel_link
 from tools.duffel import DuffelError, search_stays
 from tools.flight import _airport_db  # reuse the cached IATA airport DB for fallback coords
+from tools.mock_hotels import mock_hotels
 
 # City -> (latitude, longitude) for the cities we support directly. Accurate
 # city-centre coordinates so the radius search covers central accommodation.
@@ -96,20 +98,6 @@ def search_hotels(city, checkin, checkout, guests=1, rooms=1, room_type=None,
     guests = _coerce_int(guests, default=1, minimum=1) or 1
     rooms = _coerce_int(rooms, default=1, minimum=1) or 1
 
-    coords = _city_coords(city)
-    if coords is None:
-        return {"error": f"Could not locate '{city}'. Try a major city name "
-                         f"(e.g. Rome, Paris, Tel Aviv) or check the spelling."}
-    latitude, longitude, radius_km = coords
-
-    try:
-        raw_results = search_stays(
-            checkin, checkout, latitude, longitude,
-            guests=guests, rooms=rooms, radius_km=radius_km,
-        )
-    except DuffelError as e:
-        return {"error": str(e)}
-
     preferences = {
         "max_price": _coerce_float(max_price, default=None),
         "min_rating": _coerce_float(min_rating, default=None),
@@ -117,7 +105,37 @@ def search_hotels(city, checkin, checkout, guests=1, rooms=1, room_type=None,
         "free_cancellation_only": free_cancellation_only,
         "sort_by": sort_by,
     }
-    result = hotel_ranking.recommend(raw_results, preferences, limit=MAX_HOTEL_RESULTS)
+
+    # Primary: live Duffel Stays availability (best-effort).
+    live_error = None
+    raw_results = []
+    coords = _city_coords(city)
+    if coords is None:
+        live_error = f"Could not locate '{city}' for a live search."
+    else:
+        latitude, longitude, radius_km = coords
+        try:
+            raw_results = search_stays(
+                checkin, checkout, latitude, longitude,
+                guests=guests, rooms=rooms, radius_km=radius_km,
+            )
+        except DuffelError as e:
+            live_error = str(e)
+
+    if raw_results:
+        result = hotel_ranking.recommend(raw_results, preferences, limit=MAX_HOTEL_RESULTS)
+        result["source"] = "duffel_live"
+    else:
+        # Fail-safe: labelled mock hotels so we ALWAYS return a usable response.
+        sample = mock_hotels(city, checkin, checkout, guests, rooms)
+        result = hotel_ranking.rank_normalized(sample, preferences, limit=MAX_HOTEL_RESULTS)
+        result["source"] = "mock"
+        result["live_error"] = live_error
+        result["note"] = (
+            "Live hotel search was unavailable, so these are ILLUSTRATIVE SAMPLE "
+            "hotels (not real availability). Prices/details are examples only — tell "
+            "the user these are samples and to confirm on the booking site."
+        )
 
     # Attach a verified, deterministic booking link to each recommended hotel.
     for hotel in result["hotels"]:

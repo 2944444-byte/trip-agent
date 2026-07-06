@@ -36,24 +36,47 @@ def test_search_hotels_returns_ranked_with_links(monkeypatch):
     _patch(monkeypatch, [_result("a", 500, "Pricey"), _result("b", 200, "Cheap")])
     result = search_hotels("Rome", "2026-11-07", "2026-11-09", guests=3, room_type="twin")
 
+    assert result["source"] == "duffel_live"
     assert [h["name"] for h in result["hotels"]] == ["Cheap", "Pricey"]  # cheapest first
     assert result["hotels"][0]["booking_link"]["verified"] is True
     assert result["stay"]["guests"] == 3
     assert result["requested_room_type"] == "twin"
 
 
-def test_search_hotels_unknown_city_returns_error(monkeypatch):
-    # No network should happen; the city check fails first.
+def test_search_hotels_unknown_city_falls_back_to_mock(monkeypatch):
+    # Unknown city can't be searched live -> mock fail-safe, never an error.
+    monkeypatch.setattr(hotel, "verified_hotel_link",
+                        lambda *a, **k: {"url": "x", "verified": False, "status": None})
     result = search_hotels("Zzznowhere", "2026-11-07", "2026-11-09")
-    assert "error" in result and "locate" in result["error"]
+    assert result["source"] == "mock"
+    assert result["hotels"]  # always returns something
+    assert "SAMPLE" in result["note"]
 
 
-def test_search_hotels_duffel_error(monkeypatch):
+def test_search_hotels_duffel_error_falls_back_to_mock(monkeypatch):
     def _boom(*a, **k):
         raise DuffelError("Duffel API error 403: stays not enabled")
     monkeypatch.setattr(hotel, "search_stays", _boom)
+    monkeypatch.setattr(hotel, "verified_hotel_link",
+                        lambda *a, **k: {"url": "x", "verified": True, "status": 200})
     result = search_hotels("Rome", "2026-11-07", "2026-11-09")
-    assert "error" in result and "403" in result["error"]
+
+    assert result["source"] == "mock"
+    assert "403" in result["live_error"]
+    assert result["hotels"]
+    assert all(h["booking_link"] for h in result["hotels"])
+
+
+def test_search_hotels_mock_respects_max_price(monkeypatch):
+    monkeypatch.setattr(hotel, "search_stays",
+                        lambda *a, **k: (_ for _ in ()).throw(DuffelError("403")))
+    monkeypatch.setattr(hotel, "verified_hotel_link",
+                        lambda *a, **k: {"url": "x", "verified": False, "status": None})
+    # 1 night; cheapest mock is 180 ILS/night. Budget 200 keeps only the cheapest.
+    result = search_hotels("Rome", "2026-11-07", "2026-11-08", max_price=200)
+    assert result["source"] == "mock"
+    assert all(h["price"] <= 200 for h in result["hotels"])
+    assert result["hotels"]  # the 180 option survives
 
 
 def test_search_hotels_guests_coerced_from_string(monkeypatch):

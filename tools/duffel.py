@@ -31,28 +31,38 @@ def _headers():
     }
 
 
+_MAX_ATTEMPTS = 2  # hard cap: one retry for transient network errors only
+
+
 def _post(url, data):
     """POST {"data": data} to Duffel and return the response's `data` object.
 
-    Raises DuffelError on missing token, network failure, or a non-2xx response.
+    Retries at most once on a transient network error; a 4xx/5xx status is treated
+    as final (no point retrying a permission error). Raises DuffelError on missing
+    token, exhausted retries, or a non-2xx response.
     """
     if not DUFFEL_API_TOKEN:
         raise DuffelError(
             "DUFFEL_API_TOKEN is not set. Get a free test token at "
             "https://app.duffel.com (Developers -> Access tokens)."
         )
-    try:
-        resp = requests.post(
-            url, json={"data": data}, headers=_headers(), timeout=_TIMEOUT_SECONDS,
-        )
-    except requests.RequestException as e:
-        raise DuffelError(f"Duffel request failed: {e}") from e
 
-    if resp.status_code >= 400:
-        # Surface Duffel's own error message when present; it's usually specific.
-        raise DuffelError(f"Duffel API error {resp.status_code}: {_extract_error(resp)}")
+    last_error = None
+    for attempt in range(_MAX_ATTEMPTS):
+        try:
+            resp = requests.post(
+                url, json={"data": data}, headers=_headers(), timeout=_TIMEOUT_SECONDS,
+            )
+        except requests.RequestException as e:
+            last_error = e
+            continue  # transient — retry up to the cap
 
-    return resp.json().get("data", {})
+        if resp.status_code >= 400:
+            # Surface Duffel's own message; a 4xx (e.g. 403 scope) won't change on retry.
+            raise DuffelError(f"Duffel API error {resp.status_code}: {_extract_error(resp)}")
+        return resp.json().get("data", {})
+
+    raise DuffelError(f"Duffel request failed after {_MAX_ATTEMPTS} attempts: {last_error}")
 
 
 def search_offers(slices, passenger_count, cabin_class="economy", max_connections=None):

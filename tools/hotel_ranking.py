@@ -124,9 +124,18 @@ def expert_notes(hotel):
 
 
 def recommend(raw_results, preferences=None, limit=5):
-    """Normalize -> filter -> rank -> annotate. Returns a structured result."""
-    prefs = preferences or {}
+    """Normalize raw Duffel Stays results, then filter/rank/annotate."""
     normalized = [normalize_result(r) for r in raw_results]
+    return rank_normalized(normalized, preferences, limit)
+
+
+def rank_normalized(normalized, preferences=None, limit=5):
+    """Filter -> rank -> annotate a list of already-normalized hotels.
+
+    Shared by the live path (after normalizing raw Duffel results) and the mock
+    fallback (which builds normalized hotels directly).
+    """
+    prefs = preferences or {}
     matching = [h for h in normalized if matches_preferences(h, prefs)]
     matching.sort(key=_sort_key(prefs.get("sort_by")))
 
