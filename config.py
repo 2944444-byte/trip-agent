@@ -1,4 +1,3 @@
-
 import os
 
 from dotenv import load_dotenv
@@ -17,22 +16,15 @@ MAX_TOOL_STEPS = 5
 
 CURRENCY = "ils"
 
-# --- Duffel Flights API ------------------------------------------------------
-# Request-time offers (not cached) including baggage + refund/change conditions.
-# A test token (duffel_test_...) returns realistically shaped but synthetic data.
 DUFFEL_BASE_URL = "https://api.duffel.com"
 DUFFEL_VERSION = "v2"
 
-# How many recommended offers the flight tool returns to the model at most.
 MAX_FLIGHT_RESULTS = 5
-
-# How many recommended hotels the hotel tool returns, and the search radius.
 MAX_HOTEL_RESULTS = 5
 HOTEL_SEARCH_RADIUS_KM = 8
 
 
 def require_llm_key():
-    """Fail fast with a friendly message if the LLM key is missing."""
     if not LLM_API_KEY:
         raise SystemExit(
             "LLM_API_KEY is not set.\n"

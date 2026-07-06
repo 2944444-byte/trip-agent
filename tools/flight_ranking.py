@@ -1,19 +1,3 @@
-"""Flight ranking engine (mechanical helper for the flight tool).
-
-Pure, side-effect-free functions that normalize raw Duffel offers, filter them by
-structured traveler preferences (baggage, refundability, stops, airline), rank,
-and annotate each with plain-language notes. No network, no model call — so it's
-fully unit-testable.
-
-This is deliberately just the CODE. The *expertise* — how to interpret these
-offers and advise a traveler — lives in the Flight Expert skill
-(skills/flight_expert/SKILL.md), which is loaded into the model as instructions.
-The model translates a user's words into the preference dict; this engine applies
-the deterministic filtering/ranking; the skill guides how results are explained.
-"""
-
-# --- Normalization -----------------------------------------------------------
-
 def _to_float(amount):
     try:
         return float(amount)
@@ -22,7 +6,6 @@ def _to_float(amount):
 
 
 def _baggage_counts(segment):
-    """Count checked and carry-on bags for the first passenger on a segment."""
     passengers = segment.get("passengers") or []
     if not passengers:
         return 0, 0
@@ -37,11 +20,6 @@ def _baggage_counts(segment):
 
 
 def _offer_baggage(slices):
-    """Guaranteed baggage = the minimum included on any segment of the trip.
-
-    You only reliably have a bag on every leg if every segment includes it, so we
-    take the per-type minimum across all segments.
-    """
     checked_per_segment, carry_on_per_segment = [], []
     for sl in slices:
         for seg in sl.get("segments") or []:
@@ -54,7 +32,6 @@ def _offer_baggage(slices):
 
 
 def _condition(conditions, key):
-    """Return (allowed: bool, penalty: str|None) for a conditions sub-object."""
     block = (conditions or {}).get(key)
     if not block:
         return False, None
@@ -68,7 +45,6 @@ def _condition(conditions, key):
 
 
 def normalize_offer(raw):
-    """Turn a raw Duffel offer into a clean, flat dict our layer understands."""
     slices = raw.get("slices") or []
     owner = raw.get("owner") or {}
     conditions = raw.get("conditions") or {}
@@ -108,10 +84,7 @@ def normalize_offer(raw):
     }
 
 
-# --- Preference filtering ----------------------------------------------------
-
 def matches_preferences(offer, prefs):
-    """Return True if a normalized offer satisfies every set preference."""
     if prefs.get("refundable_only") and not offer["refundable"]:
         return False
 
@@ -141,8 +114,6 @@ def matches_preferences(offer, prefs):
     return True
 
 
-# --- Ranking -----------------------------------------------------------------
-
 def _sort_key(sort_by):
     if sort_by == "stops":
         return lambda o: (o["stops"], o["price"] if o["price"] is not None else float("inf"))
@@ -150,10 +121,7 @@ def _sort_key(sort_by):
     return lambda o: (o["price"] if o["price"] is not None else float("inf"), o["stops"])
 
 
-# --- Expert annotation -------------------------------------------------------
-
 def expert_notes(offer):
-    """Plain-language notes a knowledgeable travel agent would point out."""
     notes = []
 
     notes.append("Direct" if offer["stops"] == 0
@@ -175,20 +143,7 @@ def expert_notes(offer):
     return notes
 
 
-# --- Public entry point ------------------------------------------------------
-
 def recommend(raw_offers, preferences=None, limit=5):
-    """Normalize -> filter -> rank -> annotate. Returns a structured result.
-
-    Args:
-        raw_offers: list of raw Duffel offer dicts.
-        preferences: optional dict of traveler preferences (see the tool schema).
-        limit: max number of offers to return.
-
-    Returns:
-        {"offers": [...annotated...], "applied": {...}, "total_found": int,
-         "total_after_filters": int, "note": str|None}
-    """
     prefs = preferences or {}
     normalized = [normalize_offer(o) for o in raw_offers]
     matching = [o for o in normalized if matches_preferences(o, prefs)]

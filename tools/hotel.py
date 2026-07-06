@@ -1,52 +1,32 @@
-"""Hotel search tool (Duffel Stays-backed, with a mock fail-safe).
-
-Orchestration layer with a stable signature. It:
-  1. resolves a city name to search coordinates,
-  2. asks Duffel Stays for live (request-time) availability,
-  3. runs the hotel ranking engine to filter/rank/annotate by preferences,
-  4. attaches a deterministic, HTTP-verified booking link to each hotel.
-
-Fail-safe: if the live search can't run (no Stays scope, unknown city, network
-error) or returns nothing, it falls back to clearly-labelled MOCK sample hotels so
-the agent always returns a usable response instead of erroring or looping. Mock
-results are tagged `source: "mock"` and the Hotel Expert skill discloses them.
-"""
 from config import HOTEL_SEARCH_RADIUS_KM, MAX_HOTEL_RESULTS
 from tools import hotel_ranking
 from tools.booking_links import verified_hotel_link
 from tools.duffel import DuffelError, search_stays
-from tools.flight import _airport_db  # reuse the cached IATA airport DB for fallback coords
+from tools.flight import _airport_db  # cached IATA airport DB, offline coord fallback
+from tools.geocoding import geocode_city
 from tools.mock_hotels import mock_hotels
 
-# City -> (latitude, longitude) for the cities we support directly. Accurate
-# city-centre coordinates so the radius search covers central accommodation.
-_CITY_COORDS = {
-    "tel aviv": (32.0853, 34.7818), "rome": (41.9028, 12.4964),
-    "milan": (45.4642, 9.1900), "venice": (45.4408, 12.3155),
-    "naples": (40.8518, 14.2681), "florence": (43.7696, 11.2558),
-    "paris": (48.8566, 2.3522), "london": (51.5074, -0.1278),
-    "barcelona": (41.3874, 2.1686), "athens": (37.9838, 23.7275),
-    "berlin": (52.5200, 13.4050),
-}
 
-
-def _city_coords(city):
-    """Return (lat, lon, radius_km) for a city, or None if we can't locate it.
-
-    Curated city-centre coordinates are used when available; otherwise we fall
-    back to the coordinates of an airport in that city (with a wider radius, since
-    an airport can sit well outside the centre).
-    """
+def _airport_coords(city):
+    """Offline fallback: coordinates of an airport in the city (wider radius)."""
     key = (city or "").strip().lower()
-    if key in _CITY_COORDS:
-        lat, lon = _CITY_COORDS[key]
-        return lat, lon, HOTEL_SEARCH_RADIUS_KM
-
     for _, details in _airport_db().items():
         name = details.get("city")
         if name and name.lower() == key and details.get("lat") is not None:
             return details["lat"], details["lon"], 30
     return None
+
+
+def _city_coords(city):
+    """Return (lat, lon, radius_km) for any city, or None if it can't be located.
+
+    Resolves dynamically via the geocoder (no hardcoded city list); if the geocoder
+    is unreachable, falls back to an airport's coordinates in that city.
+    """
+    coords = geocode_city(city)
+    if coords:
+        return coords[0], coords[1], HOTEL_SEARCH_RADIUS_KM
+    return _airport_coords(city)
 
 
 def _coerce_int(value, default=None, minimum=None):
@@ -75,26 +55,6 @@ def _coerce_float(value, default=None):
 def search_hotels(city, checkin, checkout, guests=1, rooms=1, room_type=None,
                   max_price=None, min_rating=None, breakfast_required=False,
                   free_cancellation_only=False, sort_by=None):
-    """Search live hotel availability and apply Hotel Expert preferences.
-
-    Args:
-        city: destination city name (e.g. "Rome").
-        checkin, checkout: stay dates, "YYYY-MM-DD".
-        guests: number of adult guests (strings like "3" are coerced).
-        rooms: number of rooms required.
-        room_type: free-text room preference (e.g. "twin/separate beds",
-            "double", "private room", "apartment"). Passed through for the Hotel
-            Expert skill to reason about; Duffel search doesn't filter bed layout.
-        max_price: drop hotels whose cheapest total is above this (stay total).
-        min_rating: minimum star rating.
-        breakfast_required: keep only hotels with a breakfast rate.
-        free_cancellation_only: keep only hotels with a free-cancellation rate.
-        sort_by: "price" (default), "rating", or "review_score".
-
-    Returns:
-        A dict with recommended hotels (each with a verified booking link) and the
-        applied filters, or a dict with an "error" key.
-    """
     guests = _coerce_int(guests, default=1, minimum=1) or 1
     rooms = _coerce_int(rooms, default=1, minimum=1) or 1
 

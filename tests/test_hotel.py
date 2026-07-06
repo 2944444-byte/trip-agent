@@ -21,7 +21,13 @@ def _result(result_id, price, name):
     }
 
 
+def _geocode_ok(monkeypatch, coords=(41.9028, 12.4964)):
+    """Patch geocoding so tests never hit the network."""
+    monkeypatch.setattr(hotel, "geocode_city", lambda *a, **k: coords)
+
+
 def _patch(monkeypatch, results):
+    _geocode_ok(monkeypatch)
     monkeypatch.setattr(hotel, "search_stays", lambda *a, **k: results)
     monkeypatch.setattr(hotel, "verified_hotel_link",
                         lambda *a, **k: {"url": "https://example.test/hotel",
@@ -43,8 +49,10 @@ def test_search_hotels_returns_ranked_with_links(monkeypatch):
     assert result["requested_room_type"] == "twin"
 
 
-def test_search_hotels_unknown_city_falls_back_to_mock(monkeypatch):
-    # Unknown city can't be searched live -> mock fail-safe, never an error.
+def test_search_hotels_unlocatable_city_falls_back_to_mock(monkeypatch):
+    # Geocoder can't resolve it and there's no airport match -> mock fail-safe.
+    monkeypatch.setattr(hotel, "geocode_city", lambda *a, **k: None)
+    monkeypatch.setattr(hotel, "_airport_coords", lambda *a, **k: None)
     monkeypatch.setattr(hotel, "verified_hotel_link",
                         lambda *a, **k: {"url": "x", "verified": False, "status": None})
     result = search_hotels("Zzznowhere", "2026-11-07", "2026-11-09")
@@ -54,6 +62,8 @@ def test_search_hotels_unknown_city_falls_back_to_mock(monkeypatch):
 
 
 def test_search_hotels_duffel_error_falls_back_to_mock(monkeypatch):
+    _geocode_ok(monkeypatch)
+
     def _boom(*a, **k):
         raise DuffelError("Duffel API error 403: stays not enabled")
     monkeypatch.setattr(hotel, "search_stays", _boom)
@@ -68,6 +78,7 @@ def test_search_hotels_duffel_error_falls_back_to_mock(monkeypatch):
 
 
 def test_search_hotels_mock_respects_max_price(monkeypatch):
+    _geocode_ok(monkeypatch)
     monkeypatch.setattr(hotel, "search_stays",
                         lambda *a, **k: (_ for _ in ()).throw(DuffelError("403")))
     monkeypatch.setattr(hotel, "verified_hotel_link",
@@ -80,6 +91,7 @@ def test_search_hotels_mock_respects_max_price(monkeypatch):
 
 
 def test_search_hotels_guests_coerced_from_string(monkeypatch):
+    _geocode_ok(monkeypatch)
     captured = {}
 
     def _capture(checkin, checkout, lat, lon, guests=1, rooms=1, radius_km=10):

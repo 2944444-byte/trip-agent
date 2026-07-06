@@ -53,14 +53,7 @@ def _execute_tool_call(tool_call):
 
 
 def run_agent_turn(messages, max_steps=config.MAX_TOOL_STEPS):
-    """Resolve one user turn, guaranteeing a text reply and never looping.
-
-    Loop-breakers: (1) identical repeated tool calls in a turn are served from a
-    cache instead of re-hitting the API, and (2) on the final step the model is
-    forced to answer in text (tool_choice="none"), so a turn can never end without
-    a user-facing response.
-    """
-    seen_calls = {}  # (name, args) -> cached JSON result, to short-circuit repeats
+    seen_calls = {}
 
     for step in range(max_steps):
         force_answer = step == max_steps - 1
@@ -80,7 +73,6 @@ def run_agent_turn(messages, max_steps=config.MAX_TOOL_STEPS):
         for tool_call in msg.tool_calls:
             key = (tool_call.function.name, tool_call.function.arguments)
             if key in seen_calls:
-                # Same call already ran this turn — reuse it and nudge the model on.
                 content = seen_calls[key]
                 print(f"  [tool] {tool_call.function.name} (repeat — using cached result)")
             else:
@@ -92,12 +84,10 @@ def run_agent_turn(messages, max_steps=config.MAX_TOOL_STEPS):
                 "content": content,
             })
 
-    # Unreachable in practice (the final step forces a text answer), but be safe.
     return "I couldn't complete that search in time — please try again."
 
 
 def main():
-    # Compose the base prompt with any Markdown skills (skills/*/SKILL.md).
     skills_text, skill_names = skills_prompt()
     system_prompt = SYSTEM_PROMPT + skills_text
 

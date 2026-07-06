@@ -1,15 +1,3 @@
-"""Hotel ranking engine (mechanical helper for the hotel tool).
-
-Pure, side-effect-free functions that normalize raw Duffel Stays results, filter
-them by structured traveler preferences (price, rating, breakfast, free
-cancellation), rank, and annotate each with plain-language notes. No network, no
-model call — fully unit-testable.
-
-Just the CODE. The advisory *expertise* — group dynamics, when a shared apartment
-beats separate rooms, how to weigh cancellation policy and location — lives in the
-Hotel Expert skill (skills/hotel_expert/SKILL.md), loaded into the model.
-"""
-
 _BREAKFAST_BOARDS = {"breakfast", "half_board", "full_board", "all_inclusive"}
 
 
@@ -30,7 +18,6 @@ def _rate_has_breakfast(rate):
 
 
 def _rate_is_free_cancellation(rate, total):
-    """Free cancellation = a timeline entry that refunds (about) the full amount."""
     total = _to_float(total)
     for entry in rate.get("cancellation_timeline") or []:
         refund = _to_float(entry.get("refund_amount"))
@@ -46,7 +33,6 @@ def _all_rates(accommodation):
 
 
 def normalize_result(raw):
-    """Turn a raw Duffel Stays result into a clean, flat dict."""
     acc = raw.get("accommodation") or {}
     location = acc.get("location") or {}
     address = location.get("address") or {}
@@ -65,10 +51,10 @@ def normalize_result(raw):
     return {
         "id": raw.get("id"),
         "name": acc.get("name"),
-        "rating": acc.get("rating"),               # star rating
-        "review_score": acc.get("review_score"),   # guest score
+        "rating": acc.get("rating"),
+        "review_score": acc.get("review_score"),
         "review_count": acc.get("review_count"),
-        "price": price,                            # cheapest total for the stay
+        "price": price,
         "currency": raw.get("cheapest_rate_currency"),
         "city": address.get("city_name") or address.get("city"),
         "address": address.get("line_one") or address.get("line1"),
@@ -79,7 +65,6 @@ def normalize_result(raw):
 
 
 def matches_preferences(hotel, prefs):
-    """Return True if a normalized hotel satisfies every set preference."""
     max_price = prefs.get("max_price")
     if max_price is not None and hotel["price"] is not None and hotel["price"] > max_price:
         return False
@@ -106,12 +91,10 @@ def _sort_key(sort_by):
         return lambda h: (-(h["rating"] or 0), h["price"] if h["price"] is not None else float("inf"))
     if sort_by == "review_score":
         return lambda h: (-(h["review_score"] or 0), h["price"] if h["price"] is not None else float("inf"))
-    # default: cheapest first, higher rating as a tie-breaker
     return lambda h: (h["price"] if h["price"] is not None else float("inf"), -(h["rating"] or 0))
 
 
 def expert_notes(hotel):
-    """Plain-language notes a knowledgeable travel consultant would point out."""
     notes = []
     if hotel["rating"]:
         notes.append(f"{hotel['rating']}-star")
@@ -124,17 +107,11 @@ def expert_notes(hotel):
 
 
 def recommend(raw_results, preferences=None, limit=5):
-    """Normalize raw Duffel Stays results, then filter/rank/annotate."""
     normalized = [normalize_result(r) for r in raw_results]
     return rank_normalized(normalized, preferences, limit)
 
 
 def rank_normalized(normalized, preferences=None, limit=5):
-    """Filter -> rank -> annotate a list of already-normalized hotels.
-
-    Shared by the live path (after normalizing raw Duffel results) and the mock
-    fallback (which builds normalized hotels directly).
-    """
     prefs = preferences or {}
     matching = [h for h in normalized if matches_preferences(h, prefs)]
     matching.sort(key=_sort_key(prefs.get("sort_by")))

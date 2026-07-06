@@ -1,16 +1,3 @@
-"""Flight search tool (Duffel-backed, with a Travelpayouts fallback).
-
-Orchestration layer with a stable signature. It:
-  1. resolves city names to IATA codes,
-  2. asks Duffel for live (request-time) offers,
-  3. runs the ranking engine to filter/rank/annotate by traveler preferences,
-  4. attaches a deterministic, HTTP-verified booking link.
-
-If Duffel is unavailable (e.g. the token lacks the flight scope) or returns no
-offers, it falls back to Travelpayouts cached prices so the agent can still show
-options — clearly marked as cached, and without baggage/refund data the cached
-source doesn't provide.
-"""
 import functools
 
 import airportsdata
@@ -21,7 +8,6 @@ from tools.booking_links import verified_flight_link
 from tools.duffel import DuffelError, search_offers
 from tools.travelpayouts import TravelpayoutsError, search_cheap_prices
 
-# Curated city -> IATA metro map, checked before the airportsdata fallback.
 _CITY_TO_IATA = {
     "tel aviv": "TLV", "rome": "ROM", "milan": "MIL", "venice": "VCE",
     "naples": "NAP", "florence": "FLR", "paris": "PAR", "london": "LON",
@@ -30,13 +16,10 @@ _CITY_TO_IATA = {
 
 
 @functools.lru_cache(maxsize=1)
-def _airport_db():
-    """Load the IATA airport database once (it's a few MB) and cache it."""
-    return airportsdata.load("IATA")
+def _airport_db():    return airportsdata.load("IATA")
 
 
 def get_iata_by_city(city_name):
-    """Return the first IATA code whose airport city matches `city_name`, or None."""
     target = city_name.strip().lower()
     for iata, details in _airport_db().items():
         city = details.get("city")
@@ -46,7 +29,6 @@ def get_iata_by_city(city_name):
 
 
 def _to_iata(place):
-    """Convert a city name (or code) into an IATA code, best-effort."""
     p = (place or "").strip()
     if len(p) == 3 and p.isalpha():
         return p.upper()
@@ -56,7 +38,6 @@ def _to_iata(place):
 
 
 def _coerce_int(value, default=None, minimum=None):
-    """Coerce an untrusted model-supplied value into an int (or default)."""
     if isinstance(value, bool):
         return default
     if isinstance(value, int):
@@ -80,7 +61,6 @@ def _coerce_float(value, default=None):
 
 
 def _coerce_passengers(passengers):
-    """Coerce the passenger count into a positive int (defaults to 1)."""
     return _coerce_int(passengers, default=1, minimum=1) or 1
 
 
@@ -89,26 +69,6 @@ def search_flights(origin, destination, depart_date, return_date=None, passenger
                    min_checked_bags=None, require_carry_on=False,
                    airlines_include=None, airlines_exclude=None,
                    max_price=None, sort_by=None):
-    """Search live flight offers and apply Flight Expert preferences.
-
-    Args:
-        origin, destination: city name or IATA code.
-        depart_date: outbound date, "YYYY-MM-DD".
-        return_date: optional inbound date for a round trip, "YYYY-MM-DD".
-        passengers: number of adult travelers (strings like "3" are coerced).
-        cabin_class: economy | premium_economy | business | first.
-        max_stops: max connections per leg (0 = direct only).
-        refundable_only: keep only refundable fares.
-        min_checked_bags: require at least this many checked bags included.
-        require_carry_on: require a carry-on bag included.
-        airlines_include / airlines_exclude: IATA airline codes to keep / drop.
-        max_price: drop offers above this amount (offer currency).
-        sort_by: "price" (default) or "stops".
-
-    Returns:
-        A dict with recommended offers, applied filters, and a verified booking
-        link, or a dict with an "error" key.
-    """
     passengers = _coerce_passengers(passengers)
     max_stops = _coerce_int(max_stops, default=None, minimum=0)
     cabin_class = cabin_class or "economy"  # model may send null
@@ -152,7 +112,6 @@ def search_flights(origin, destination, depart_date, return_date=None, passenger
         result = flight_ranking.recommend(raw_offers, preferences, limit=MAX_FLIGHT_RESULTS)
         result["source"] = "duffel_live"
     else:
-        # Fallback: Travelpayouts cached prices so we still return options.
         result = _travelpayouts_fallback(
             origin_code, destination_code, depart_date, passengers, preferences,
             duffel_error,
@@ -160,7 +119,6 @@ def search_flights(origin, destination, depart_date, return_date=None, passenger
         if "error" in result:
             return result
 
-    # Attach ONE verified booking link for the searched route (see booking_links).
     result["booking_link"] = verified_flight_link(
         origin_code, destination_code, depart_date, return_date, passengers,
     )
@@ -171,16 +129,9 @@ def search_flights(origin, destination, depart_date, return_date=None, passenger
 
 def _travelpayouts_fallback(origin, destination, depart_date, passengers, preferences,
                             duffel_error):
-    """Cached-price fallback used when Duffel yields nothing.
-
-    Returns the same result shape as the live path, marked as cached. Only the
-    filters the cached data supports (max_price) are applied; baggage/refund/stops
-    preferences are not available and are reported as ignored.
-    """
     try:
         cached = search_cheap_prices(origin, destination, depart_date)
         if not cached and len(depart_date) == 10:
-            # A specific day often has no cached data; retry the whole month.
             cached = search_cheap_prices(origin, destination, depart_date[:7])
     except TravelpayoutsError as tp_error:
         return {"error": "Flight search is unavailable right now.",
@@ -231,13 +182,6 @@ def _travelpayouts_fallback(origin, destination, depart_date, passengers, prefer
     }
 
 
-# JSON schema advertised to the model. Kept next to the function so the two never
-# drift apart. Numeric fields accept string too, because the model often sends
-# "3" and Groq validates types server-side before our code runs; we coerce.
-# Optional params are nullable: the model tends to fill EVERY property, using null
-# for the ones it isn't using. Groq validates the schema server-side and would 400
-# on an unexpected null, so we allow null everywhere the field is optional; our
-# function already defaults None correctly (and coerces where needed).
 _NUM = {"type": ["integer", "string", "null"]}
 SCHEMA = {
     "type": "function",
