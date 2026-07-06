@@ -79,7 +79,6 @@ def main():
     while user_input.lower() not in {"exit", "quit"}:
         if not user_input:
             continue
-
         messages.append({"role": "user", "content": user_input})
         reply = run_agent_turn(messages)
         print(f"\nAgent: {reply}\n")

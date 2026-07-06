@@ -1,12 +1,3 @@
-"""Unit tests for the travel agent's tools and registry.
-
-These tests hit NO network and need NO API keys: the Travelpayouts HTTP call is
-monkeypatched, and importing the tools does not require the LLM key (that check
-only runs in main.py). Run with:
-
-    .venv/Scripts/python.exe -m pytest            # Windows
-    python -m pytest                              # if venv is active
-"""
 import pytest
 
 import tools.flight as flight
