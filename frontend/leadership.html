@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>leadership</title>
+  <style>
+    :root {
+      --dark-blue: #003366;
+      --blue: #0066b2;
+      --light-blue: #009dd9;
+      --red: #e21836;
+      --text: #222831;
+      --gray: #6b7280;
+      --bg: #ffffff;
+      --card-bg: #f5f7fa;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: "Gotham", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* top nav */
+    .topbar {
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .topbar-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+    .brand-mark { width: 40px; height: 40px; display: block; }
+    .brand-name {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: var(--dark-blue);
+      text-transform: lowercase;
+    }
+    .parody-tag {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--red);
+      border: 1.5px solid var(--red);
+      border-radius: 999px;
+      padding: 3px 10px;
+      margin-left: 4px;
+    }
+    nav.mainnav { display: flex; gap: 28px; }
+    nav.mainnav a {
+      color: var(--text);
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 500;
+      padding: 6px 0;
+      border-bottom: 3px solid transparent;
+    }
+    nav.mainnav a.active,
+    nav.mainnav a:hover { border-bottom-color: var(--light-blue); }
+
+    /* hero */
+    .hero {
+      background: linear-gradient(120deg, var(--dark-blue) 0%, var(--blue) 60%, var(--light-blue) 100%);
+      color: #fff;
+      padding: 72px 24px 88px;
+    }
+    .hero-inner { max-width: 1200px; margin: 0 auto; }
+    .breadcrumb {
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: lowercase;
+      opacity: 0.85;
+      margin-bottom: 18px;
+    }
+    .breadcrumb a { color: #fff; text-decoration: none; }
+    .breadcrumb span { margin: 0 8px; }
+    .hero h1 {
+      font-size: 56px;
+      font-weight: 300;
+      text-transform: lowercase;
+      letter-spacing: 0.01em;
+    }
+    .hero p {
+      margin-top: 16px;
+      max-width: 640px;
+      font-size: 18px;
+      line-height: 1.6;
+      font-weight: 300;
+    }
+
+    /* section */
+    .section { max-width: 1200px; margin: 0 auto; padding: 64px 24px; }
+    .section h2 {
+      font-size: 32px;
+      font-weight: 300;
+      text-transform: lowercase;
+      color: var(--dark-blue);
+      margin-bottom: 8px;
+    }
+    .section .rule {
+      width: 56px;
+      height: 4px;
+      background: var(--red);
+      margin-bottom: 40px;
+    }
+
+    /* leader grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 28px;
+    }
+    .card {
+      background: var(--card-bg);
+      border-radius: 4px;
+      overflow: hidden;
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .card:hover {
+      box-shadow: 0 10px 28px rgba(0, 51, 102, 0.18);
+      transform: translateY(-4px);
+    }
+    .card .photo {
+      aspect-ratio: 1 / 1;
+      width: 100%;
+      overflow: hidden;
+    }
+    .card .photo img,
+    .card .photo svg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .card .info { padding: 20px 22px 24px; }
+    .card .name {
+      font-size: 19px;
+      font-weight: 600;
+      color: var(--dark-blue);
+      margin-bottom: 6px;
+    }
+    .card .title {
+      font-size: 14.5px;
+      line-height: 1.45;
+      color: var(--gray);
+    }
+    .card .title strong { color: var(--red); font-weight: 600; }
+
+    footer {
+      background: var(--dark-blue);
+      color: rgba(255, 255, 255, 0.8);
+      text-align: center;
+      padding: 32px 24px;
+      font-size: 13px;
+      margin-top: 40px;
+    }
+
+    @media (max-width: 640px) {
+      .hero h1 { font-size: 38px; }
+      .topbar-inner { height: 60px; }
+      nav.mainnav { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#">
+        <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+          <polygon points="4,4 20,14 36,4 36,12 20,22 4,12" fill="#0066b2"/>
+          <polygon points="4,18 20,28 36,18 36,26 20,36 4,26" fill="#e21836"/>
+        </svg>
+        <span class="brand-name">chevron</span>
+        <span class="parody-tag">parody</span>
+      </a>
+      <nav class="mainnav">
+        <a href="#">about</a>
+        <a href="#" class="active">who we are</a>
+        <a href="#">operations</a>
+        <a href="#">newsroom</a>
+        <a href="#">investors</a>
+        <a href="#">careers</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="breadcrumb">
+        <a href="#">home</a><span>&rsaquo;</span><a href="#">who we are</a><span>&rsaquo;</span>leadership
+      </div>
+      <h1>leadership</h1>
+      <p>our leaders guide the enterprise with experience, integrity and a shared commitment to delivering the energy — and the dog walks — that the world needs today and tomorrow.</p>
+    </div>
+  </section>
+
+  <main class="section">
+    <h2>executive leadership</h2>
+    <div class="rule"></div>
+
+    <div class="grid">
+
+      <div class="card">
+        <div class="photo">
+          <svg viewBox="0 0 240 240" role="img" aria-label="Marcus Bellweather">
+            <rect width="240" height="240" fill="#dbe7f3"/>
+            <path d="M120 152c-46 0-72 26-80 88h160c-8-62-34-88-80-88z" fill="#1f3a5f"/>
+            <path d="M100 154l20 32 20-32z" fill="#ffffff"/>
+            <path d="M116 158h8l5 42-9 16-9-16z" fill="#e21836"/>
+            <rect x="104" y="112" width="32" height="44" rx="14" fill="#dcae85"/>
+            <ellipse cx="120" cy="90" rx="43" ry="47" fill="#f0c49e"/>
+            <circle cx="77" cy="92" r="7" fill="#f0c49e"/>
+            <circle cx="163" cy="92" r="7" fill="#f0c49e"/>
+            <path d="M77 84c2-32 20-46 43-46s41 14 43 46c-12-14-26-20-43-20s-31 6-43 20z" fill="#b9c0c9"/>
+            <circle cx="104" cy="94" r="4" fill="#2b3440"/>
+            <circle cx="136" cy="94" r="4" fill="#2b3440"/>
+            <path d="M108 116q12 10 24 0" stroke="#2b3440" stroke-width="4" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <div class="info">
+          <div class="name">Marcus Bellweather</div>
+          <div class="title">chairman of the board and chief executive officer</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="photo">
+          <svg viewBox="0 0 240 240" role="img" aria-label="Ingrid Solberg">
+            <rect width="240" height="240" fill="#e3eef7"/>
+            <ellipse cx="120" cy="92" rx="52" ry="56" fill="#e7c878"/>
+            <path d="M120 152c-46 0-72 26-80 88h160c-8-62-34-88-80-88z" fill="#1d6e78"/>
+            <path d="M102 154l18 28 18-28z" fill="#ffffff"/>
+            <rect x="104" y="112" width="32" height="44" rx="14" fill="#e3bd9e"/>
+            <ellipse cx="120" cy="90" rx="43" ry="47" fill="#f6d7bd"/>
+            <path d="M76 82c3-30 21-44 44-44s41 14 44 44c1 20-2 40-6 48-4-4-6-10-6-18l-2-14c-8-12-17-16-30-16s-22 4-30 16l-2 14c0 8-2 14-6 18-4-8-7-28-6-48z" fill="#e7c878"/>
+            <circle cx="104" cy="94" r="4" fill="#2b3440"/>
+            <circle cx="136" cy="94" r="4" fill="#2b3440"/>
+            <path d="M108 116q12 10 24 0" stroke="#2b3440" stroke-width="4" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <div class="info">
+          <div class="name">Ingrid Solberg</div>
+          <div class="title">vice chairman</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="photo">
+          <svg viewBox="0 0 240 240" role="img" aria-label="Theodore Okafor">
+            <rect width="240" height="240" fill="#dde9f2"/>
+            <path d="M120 152c-46 0-72 26-80 88h160c-8-62-34-88-80-88z" fill="#3a4450"/>
+            <path d="M100 154l20 32 20-32z" fill="#ffffff"/>
+            <path d="M116 158h8l5 42-9 16-9-16z" fill="#009dd9"/>
+            <rect x="104" y="112" width="32" height="44" rx="14" fill="#77492e"/>
+            <ellipse cx="120" cy="90" rx="43" ry="47" fill="#8d5a3b"/>
+            <circle cx="77" cy="92" r="7" fill="#8d5a3b"/>
+            <circle cx="163" cy="92" r="7" fill="#8d5a3b"/>
+            <g stroke="#2b3440" stroke-width="4" fill="none">
+              <circle cx="103" cy="94" r="13"/>
+              <circle cx="137" cy="94" r="13"/>
+              <path d="M116 94h8"/>
+            </g>
+            <circle cx="103" cy="94" r="4" fill="#1c232b"/>
+            <circle cx="137" cy="94" r="4" fill="#1c232b"/>
+            <path d="M108 118q12 10 24 0" stroke="#1c232b" stroke-width="4" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <div class="info">
+          <div class="name">Theodore Okafor</div>
+          <div class="title">vice president and chief financial officer</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="photo">
+          <img src="assets/gil-viorano.jpeg" alt="Gil Viorano">
+        </div>
+        <div class="info">
+          <div class="name">Gil Viorano</div>
+          <div class="title"><strong>dog walker</strong></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="photo">
+          <svg viewBox="0 0 240 240" role="img" aria-label="Priya Ramanathan">
+            <rect width="240" height="240" fill="#e6ecf6"/>
+            <path d="M70 92c0-38 22-54 50-54s50 16 50 54v66c0 12-9 18-18 13l-6-3V98h-52v70l-6 3c-9 5-18-1-18-13z" fill="#2f2a33"/>
+            <path d="M120 152c-46 0-72 26-80 88h160c-8-62-34-88-80-88z" fill="#6d3556"/>
+            <path d="M102 154l18 28 18-28z" fill="#ffffff"/>
+            <rect x="104" y="112" width="32" height="44" rx="14" fill="#b57a52"/>
+            <ellipse cx="120" cy="90" rx="43" ry="47" fill="#c98e63"/>
+            <path d="M77 86c2-32 20-46 43-46s41 14 43 46c-12-14-26-20-43-20s-31 6-43 20z" fill="#2f2a33"/>
+            <circle cx="104" cy="94" r="4" fill="#2b3440"/>
+            <circle cx="136" cy="94" r="4" fill="#2b3440"/>
+            <path d="M108 116q12 10 24 0" stroke="#2b3440" stroke-width="4" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <div class="info">
+          <div class="name">Priya Ramanathan</div>
+          <div class="title">president, upstream</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="photo">
+          <svg viewBox="0 0 240 240" role="img" aria-label="Salvatore Greco">
+            <rect width="240" height="240" fill="#dfe9f1"/>
+            <path d="M120 152c-46 0-72 26-80 88h160c-8-62-34-88-80-88z" fill="#5a6472"/>
+            <path d="M100 154l20 32 20-32z" fill="#ffffff"/>
+            <path d="M116 158h8l5 42-9 16-9-16z" fill="#1f3a5f"/>
+            <rect x="104" y="112" width="32" height="44" rx="14" fill="#c69268"/>
+            <ellipse cx="120" cy="90" rx="43" ry="47" fill="#e0aa7e"/>
+            <circle cx="77" cy="92" r="7" fill="#e0aa7e"/>
+            <circle cx="163" cy="92" r="7" fill="#e0aa7e"/>
+            <path d="M77 84c2-32 20-46 43-46s41 14 43 46c-12-14-26-20-43-20s-31 6-43 20z" fill="#3b3630"/>
+            <path d="M79 96c2 30 17 44 41 44s39-14 41-44c0 22-8 36-17 41-7-6-15-8-24-8s-17 2-24 8c-9-5-17-19-17-41z" fill="#3b3630"/>
+            <path d="M104 112c6-5 10-3 16-3s10-2 16 3c-4 6-28 6-32 0z" fill="#3b3630"/>
+            <circle cx="104" cy="92" r="4" fill="#2b3440"/>
+            <circle cx="136" cy="92" r="4" fill="#2b3440"/>
+          </svg>
+        </div>
+        <div class="info">
+          <div class="name">Salvatore Greco</div>
+          <div class="title">president, downstream, midstream &amp; chemicals</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="photo">
+          <svg viewBox="0 0 240 240" role="img" aria-label="Beatrice Lindqvist">
+            <rect width="240" height="240" fill="#e5edf5"/>
+            <circle cx="120" cy="42" r="16" fill="#cfd6dd"/>
+            <path d="M120 152c-46 0-72 26-80 88h160c-8-62-34-88-80-88z" fill="#0066b2"/>
+            <path d="M102 154l18 28 18-28z" fill="#ffffff"/>
+            <rect x="104" y="112" width="32" height="44" rx="14" fill="#e3bd9e"/>
+            <ellipse cx="120" cy="90" rx="43" ry="47" fill="#f6d7bd"/>
+            <path d="M77 84c2-32 20-46 43-46s41 14 43 46c-12-14-26-20-43-20s-31 6-43 20z" fill="#cfd6dd"/>
+            <g stroke="#2b3440" stroke-width="4" fill="none">
+              <circle cx="103" cy="94" r="13"/>
+              <circle cx="137" cy="94" r="13"/>
+              <path d="M116 94h8"/>
+            </g>
+            <circle cx="103" cy="94" r="4" fill="#2b3440"/>
+            <circle cx="137" cy="94" r="4" fill="#2b3440"/>
+            <path d="M108 118q12 10 24 0" stroke="#2b3440" stroke-width="4" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <div class="info">
+          <div class="name">Beatrice Lindqvist</div>
+          <div class="title">vice president and chief human resources officer</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="photo">
+          <svg viewBox="0 0 240 240" role="img" aria-label="Hank Mercado">
+            <rect width="240" height="240" fill="#e0eaf3"/>
+            <path d="M120 152c-46 0-72 26-80 88h160c-8-62-34-88-80-88z" fill="#2c4a6e"/>
+            <path d="M98 154l22 36 22-36z" fill="#ffffff"/>
+            <rect x="104" y="112" width="32" height="44" rx="14" fill="#c1854f"/>
+            <ellipse cx="120" cy="90" rx="43" ry="47" fill="#d69a6b"/>
+            <circle cx="77" cy="92" r="7" fill="#d69a6b"/>
+            <circle cx="163" cy="92" r="7" fill="#d69a6b"/>
+            <path d="M77 84c2-32 20-46 43-46s41 14 43 46c-12-14-26-20-43-20s-31 6-43 20z" fill="#5b4632"/>
+            <path d="M103 113c6-6 11-4 17-4s11-2 17 4c-4 7-30 7-34 0z" fill="#5b4632"/>
+            <circle cx="104" cy="92" r="4" fill="#2b3440"/>
+            <circle cx="136" cy="92" r="4" fill="#2b3440"/>
+          </svg>
+        </div>
+        <div class="info">
+          <div class="name">Hank Mercado</div>
+          <div class="title">president, exploration and production</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer>
+    parody page — all leaders are fictional (except one very real dog walker) — not affiliated with chevron corporation
+  </footer>
+
+</body>
+</html>
