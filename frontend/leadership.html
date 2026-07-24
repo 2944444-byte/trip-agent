@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>leadership</title>
+  <style>
+    :root {
+      --dark-blue: #003366;
+      --blue: #0066b2;
+      --light-blue: #009dd9;
+      --red: #e21836;
+      --text: #222831;
+      --gray: #6b7280;
+      --bg: #ffffff;
+      --card-bg: #f5f7fa;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: "Gotham", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* top nav */
+    .topbar {
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .topbar-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      display: block;
+    }
+    .brand-name {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: var(--dark-blue);
+      text-transform: lowercase;
+    }
+    nav.mainnav { display: flex; gap: 28px; }
+    nav.mainnav a {
+      color: var(--text);
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 500;
+      padding: 6px 0;
+      border-bottom: 3px solid transparent;
+    }
+    nav.mainnav a.active,
+    nav.mainnav a:hover { border-bottom-color: var(--light-blue); }
+
+    /* hero */
+    .hero {
+      background: linear-gradient(120deg, var(--dark-blue) 0%, var(--blue) 60%, var(--light-blue) 100%);
+      color: #fff;
+      padding: 72px 24px 88px;
+    }
+    .hero-inner { max-width: 1200px; margin: 0 auto; }
+    .breadcrumb {
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: lowercase;
+      opacity: 0.85;
+      margin-bottom: 18px;
+    }
+    .breadcrumb a { color: #fff; text-decoration: none; }
+    .breadcrumb span { margin: 0 8px; }
+    .hero h1 {
+      font-size: 56px;
+      font-weight: 300;
+      text-transform: lowercase;
+      letter-spacing: 0.01em;
+    }
+    .hero p {
+      margin-top: 16px;
+      max-width: 640px;
+      font-size: 18px;
+      line-height: 1.6;
+      font-weight: 300;
+    }
+
+    /* section */
+    .section { max-width: 1200px; margin: 0 auto; padding: 64px 24px; }
+    .section h2 {
+      font-size: 32px;
+      font-weight: 300;
+      text-transform: lowercase;
+      color: var(--dark-blue);
+      margin-bottom: 8px;
+    }
+    .section .rule {
+      width: 56px;
+      height: 4px;
+      background: var(--red);
+      margin-bottom: 40px;
+    }
+
+    /* leader grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 28px;
+    }
+    .card {
+      background: var(--card-bg);
+      border-radius: 4px;
+      overflow: hidden;
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .card:hover {
+      box-shadow: 0 10px 28px rgba(0, 51, 102, 0.18);
+      transform: translateY(-4px);
+    }
+    .card .photo {
+      aspect-ratio: 1 / 1;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(160deg, var(--blue), var(--dark-blue));
+    }
+    .card .photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .card .photo .initials {
+      font-size: 64px;
+      font-weight: 300;
+      color: rgba(255, 255, 255, 0.9);
+      letter-spacing: 0.05em;
+    }
+    .card .info { padding: 20px 22px 24px; }
+    .card .name {
+      font-size: 19px;
+      font-weight: 600;
+      color: var(--dark-blue);
+      margin-bottom: 6px;
+    }
+    .card .title {
+      font-size: 14.5px;
+      line-height: 1.45;
+      color: var(--gray);
+    }
+    .card .title strong { color: var(--red); font-weight: 600; }
+
+    footer {
+      background: var(--dark-blue);
+      color: rgba(255, 255, 255, 0.8);
+      text-align: center;
+      padding: 32px 24px;
+      font-size: 13px;
+      margin-top: 40px;
+    }
+
+    @media (max-width: 640px) {
+      .hero h1 { font-size: 38px; }
+      .topbar-inner { height: 60px; }
+      nav.mainnav { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#">
+        <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+          <polygon points="4,4 20,14 36,4 36,12 20,22 4,12" fill="#0066b2"/>
+          <polygon points="4,18 20,28 36,18 36,26 20,36 4,26" fill="#e21836"/>
+        </svg>
+        <span class="brand-name">chevron</span>
+      </a>
+      <nav class="mainnav">
+        <a href="#">about</a>
+        <a href="#" class="active">who we are</a>
+        <a href="#">operations</a>
+        <a href="#">newsroom</a>
+        <a href="#">investors</a>
+        <a href="#">careers</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="breadcrumb">
+        <a href="#">home</a><span>&rsaquo;</span><a href="#">who we are</a><span>&rsaquo;</span>leadership
+      </div>
+      <h1>leadership</h1>
+      <p>our leaders guide the enterprise with experience, integrity and a shared commitment to delivering the energy — and the dog walks — that the world needs today and tomorrow.</p>
+    </div>
+  </section>
+
+  <main class="section">
+    <h2>executive leadership</h2>
+    <div class="rule"></div>
+
+    <div class="grid">
+
+      <div class="card">
+        <div class="photo"><span class="initials">MW</span></div>
+        <div class="info">
+          <div class="name">Mike Wirth</div>
+          <div class="title">chairman of the board and chief executive officer</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="photo"><span class="initials">MN</span></div>
+        <div class="info">
+          <div class="name">Mark Nelson</div>
+          <div class="title">vice chairman</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="photo"><span class="initials">EB</span></div>
+        <div class="info">
+          <div class="name">Eimear Bonner</div>
+          <div class="title">vice president and chief financial officer</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="photo">
+          <img src="assets/gil-viorano.jpeg" alt="Gil Viorano">
+        </div>
+        <div class="info">
+          <div class="name">Gil Viorano</div>
+          <div class="title"><strong>dog walker</strong></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="photo"><span class="initials">CN</span></div>
+        <div class="info">
+          <div class="name">Clay Neff</div>
+          <div class="title">president, upstream</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="photo"><span class="initials">AW</span></div>
+        <div class="info">
+          <div class="name">Andy Walz</div>
+          <div class="title">president, downstream, midstream &amp; chemicals</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="photo"><span class="initials">RM</span></div>
+        <div class="info">
+          <div class="name">Rhonda Morris</div>
+          <div class="title">vice president and chief human resources officer</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="photo"><span class="initials">BN</span></div>
+        <div class="info">
+          <div class="name">Bruce Niemeyer</div>
+          <div class="title">president, americas exploration and production</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer>
+    parody page — not affiliated with chevron corporation
+  </footer>
+
+</body>
+</html>
